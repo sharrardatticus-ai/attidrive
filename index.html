@@ -1,0 +1,1384 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>atti.drive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: full-bleed 3D view, light concrete-grey instrument panels floating over it, signal-blue accent. */
+:root {
+  --ink: #1f2328; --ink-2: #4a5058; --paper: rgba(236, 235, 228, 0.9); --paper-solid: #ecebe4; --paper-2: #dcdacf;
+  --line: rgba(31, 35, 40, 0.2); --accent: #2a56c6; --accent-ink: #ffffff; --good: #2c8a5a; --warn: #d98a1c; --bad: #c23b2e;
+  --display: 'Barlow Condensed', 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  --gx: max(16px, env(safe-area-inset-left, 0px)); --gr: max(16px, env(safe-area-inset-right, 0px));
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; background: #d0d6d6; color: var(--ink); font-family: var(--mono); -webkit-user-select: none; user-select: none; }
+#stage { position: relative; width: 100%; height: 100%; overflow: hidden; background: #d0d6d6; touch-action: none; }
+#view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+.panel { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.hide { display: none !important; }
+kbd { display: inline-block; min-width: 1.7em; padding: 1px 6px; text-align: center; font: 500 11px/1.6 var(--mono); color: var(--ink); background: var(--paper-solid); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; }
+
+#brand { position: absolute; top: 12px; left: var(--gx); pointer-events: none; padding: 4px 12px 5px; font: 700 28px/1 var(--display); letter-spacing: 0.02em; }
+#brand b { color: var(--accent); font-weight: 700; }
+#status { position: absolute; top: 52px; left: var(--gx); pointer-events: none; padding: 3px 10px; font-size: 11px; color: var(--ink-2); letter-spacing: 0.03em; }
+#toast { position: absolute; top: 14px; left: 50%; transform: translate(-50%, -8px); opacity: 0; transition: opacity 0.18s, transform 0.18s; padding: 6px 14px; font-size: 12px; background: var(--ink); color: #f2f1ea; border-radius: 4px; pointer-events: none; white-space: nowrap; }
+#toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+#cluster { position: absolute; left: 50%; bottom: max(14px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(calc(100% - 32px), 420px); padding: 10px 14px 12px; display: grid; grid-template-columns: auto 1fr auto; column-gap: 14px; row-gap: 8px; align-items: end; pointer-events: none; }
+#speedbox { display: flex; align-items: baseline; gap: 6px; }
+#speed { font: 700 56px/0.9 var(--display); font-variant-numeric: tabular-nums; min-width: 2.3ch; text-align: right; }
+#unit { font-size: 11px; color: var(--ink-2); letter-spacing: 0.08em; text-transform: uppercase; }
+#gearbox { grid-column: 3; grid-row: 1; text-align: center; padding: 2px 10px 3px; background: var(--ink); color: #f2f1ea; border-radius: 4px; font: 700 34px/1 var(--display); min-width: 2ch; }
+.meter { grid-column: 1 / -1; display: grid; grid-template-columns: 4.4em 1fr 3.2em; align-items: center; gap: 8px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.meter .bar { height: 7px; background: var(--paper-2); border-radius: 2px; overflow: hidden; border: 1px solid var(--line); }
+.meter .bar i { display: block; height: 100%; width: 100%; transform-origin: left center; transform: scaleX(0); background: var(--accent); }
+#rpmfill.red { background: var(--bad); }
+#dmgfill { background: linear-gradient(90deg, var(--warn), var(--bad)); }
+.meter output { text-align: right; font-variant-numeric: tabular-nums; }
+
+#help { position: absolute; top: 12px; right: var(--gr); padding: 10px 12px; font-size: 11px; line-height: 1.9; pointer-events: none; }
+#help div { display: flex; justify-content: space-between; gap: 18px; white-space: nowrap; }
+#help span { color: var(--ink-2); }
+
+.overlay { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: flex-start; padding: 16px var(--gr) max(16px, env(safe-area-inset-bottom, 0px)) var(--gx); background: linear-gradient(90deg, rgba(31, 35, 40, 0.38), rgba(31, 35, 40, 0) 60%); }
+#pause { align-items: center; justify-content: center; background: rgba(31, 35, 40, 0.4); }
+.card { width: min(100%, 440px); padding: 20px 20px 18px; display: flex; flex-direction: column; gap: 14px; }
+.card h1 { margin: 0; font: 700 52px/0.95 var(--display); letter-spacing: 0.01em; }
+.card h1 b { color: var(--accent); font-weight: 700; }
+.card h2 { margin: 0; font: 700 34px/1 var(--display); }
+.card p { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--ink-2); max-width: 52ch; }
+.keys { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; font-size: 11.5px; }
+.keys div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.keys span { color: var(--ink-2); text-align: right; }
+.btn { appearance: none; border: 0; cursor: pointer; padding: 12px 18px; border-radius: 5px; background: var(--accent); color: var(--accent-ink); font: 700 24px/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; }
+.btn:hover { filter: brightness(1.08); }
+.btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.fine { font-size: 10.5px; color: var(--ink-2); }
+
+#title { align-items: center; justify-content: center; overflow-y: auto; padding: 14px; background: rgba(25,29,34,.58); }
+#title .card { width: min(100%, 720px); max-height: calc(100% - 12px); overflow-y: auto; gap: 12px; }
+.garage-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.garage-head .tag { font-size:10px; letter-spacing:.12em; color:var(--ink-2); }
+.garage-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:7px; }
+.garage-choice { min-width:0; border:1px solid var(--line); border-radius:5px; padding:9px 5px; background:rgba(255,255,255,.52); color:var(--ink); cursor:pointer; font:500 10px/1.35 var(--mono); }
+.garage-choice strong { display:block; font:700 18px/1 var(--display); margin-bottom:5px; }
+.garage-choice[aria-pressed="true"] { outline:2px solid var(--accent); background:rgba(42,86,198,.12); }
+.garage-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.garage-section { display:flex; flex-direction:column; gap:7px; }
+.garage-section h3 { margin:0; font:700 20px/1 var(--display); text-transform:uppercase; }
+.paint-row { display:flex; gap:8px; flex-wrap:wrap; }
+.paint-choice { width:27px; height:27px; border-radius:50%; border:2px solid rgba(0,0,0,.22); cursor:pointer; }
+.paint-choice[aria-pressed="true"] { outline:2px solid var(--accent); outline-offset:2px; }
+.upgrade-row { display:flex; gap:6px; flex-wrap:wrap; }
+.upgrade-choice { flex:1; min-width:70px; border:1px solid var(--line); border-radius:4px; padding:8px 6px; background:rgba(255,255,255,.55); color:var(--ink); cursor:pointer; font:500 10px var(--mono); }
+.upgrade-choice[aria-pressed="true"] { border-color:var(--accent); background:rgba(42,86,198,.12); }
+#garage-summary { font-size:11px; color:var(--ink-2); min-height:1.4em; }
+#go { width:100%; min-height:54px; }
+@media(max-width:560px) { .garage-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } .garage-row { grid-template-columns:1fr; } #title .card { padding:16px; } }
+#stage:has(#title:not(.hide)) :is(#cluster, #help, #brand, #status) { visibility: hidden; }
+
+#touch { display: none; }
+body.touch #touch { display: block; }
+body.touch #help { display: none; }
+body.touch #cluster { top: 50px; bottom: auto; width: min(calc(100% - 32px), 300px); left: auto; right: var(--gr); transform: none; padding: 6px 10px 8px; }
+body.touch #speed { font-size: 38px; } body.touch #gearbox { font-size: 26px; }
+body.touch #status { display: none; }
+.pad { position: absolute; bottom: max(18px, env(safe-area-inset-bottom, 0px)); width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; font: 700 22px/1 var(--display); letter-spacing: 0.05em; color: var(--ink); touch-action: none; }
+.pad.down { background: var(--accent); color: #fff; }
+#tl { left: var(--gx); } #tr { left: calc(var(--gx) + 96px); }
+#tg { right: var(--gr); width: 96px; height: 96px; } #tb { right: calc(var(--gr) + 108px); }
+.mini { position: absolute; top: 12px; display: flex; gap: 6px; right: var(--gr); }
+.mini button { appearance: none; cursor: pointer; padding: 6px 10px; font: 500 11px/1 var(--mono); color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 4px; }
+@media (max-width: 560px) { .card h1 { font-size: 44px; } .keys { grid-template-columns: 1fr; } #brand { font-size: 24px; } }
+@media (max-width: 440px) {
+  .pad { width: 72px; height: 72px; font-size: 19px; }
+  #tr { left: calc(var(--gx) + 84px); }
+  #tg { width: 84px; height: 84px; } #tb { right: calc(var(--gr) + 96px); }
+}
+@media (max-height: 520px) { .keys { display: none; } .card { gap: 10px; } }
+@media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+</style>
+
+<div id="stage">
+  <canvas id="view" aria-label="3D driving view"></canvas>
+
+  <div id="brand" class="panel">atti<b>.</b>drive</div>
+  <div id="status" class="panel"></div>
+  <div id="toast"></div>
+
+  <div id="cluster" class="panel">
+    <div id="speedbox"><div id="speed">0</div><div id="unit">mph</div></div>
+    <div></div>
+    <div id="gearbox"><span id="gear">1</span></div>
+    <div class="meter"><label>Engine</label><div class="bar"><i id="rpmfill"></i></div><output></output></div>
+    <div class="meter"><label>Damage</label><div class="bar"><i id="dmgfill"></i></div><output id="dmgval">0%</output></div>
+  </div>
+
+  <div id="help" class="panel">
+    <div><kbd>W</kbd><span>throttle</span></div>
+    <div><kbd>S</kbd><span>brake / reverse</span></div>
+    <div><kbd>A</kbd> <kbd>D</kbd><span>steer</span></div>
+    <div><kbd>Space</kbd><span>handbrake</span></div>
+    <div><kbd>R</kbd><span>repair + upright</span></div>
+    <div><kbd>C</kbd><span>camera</span></div>
+    <div><kbd>B</kbd><span>beam view</span></div>
+    <div><kbd>V</kbd><span>paint</span></div>
+    <div><kbd>P</kbd><span>reset props</span></div>
+    <div><kbd>Esc</kbd><span>pause</span></div>
+    <div><kbd>H</kbd><span>hide this</span></div>
+  </div>
+
+  <div id="touch">
+    <div class="mini"><button id="tx-reset" type="button">Repair</button><button id="tx-cam" type="button">Cam</button><button id="tx-beam" type="button">Beams</button><button id="tx-paint" type="button">Paint</button></div>
+    <div id="tl" class="pad panel">&#9664;</div><div id="tr" class="pad panel">&#9654;</div>
+    <div id="tb" class="pad panel">BRAKE</div><div id="tg" class="pad panel">GAS</div>
+  </div>
+
+  <div id="title" class="overlay">
+    <div class="card panel">
+      <div class="garage-head"><h1>atti<b>.</b>drive</h1><span class="tag">GARAGE / BUILD 01</span></div>
+      <p>Choose your setup, paint, and performance upgrade before heading onto the test track.</p>
+      <div class="garage-section">
+        <h3>Choose a car setup</h3>
+        <div class="garage-grid" id="car-choices">
+          <button class="garage-choice" type="button" data-car="0" aria-pressed="true"><strong>01</strong>Street</button>
+          <button class="garage-choice" type="button" data-car="1" aria-pressed="false"><strong>02</strong>Sport</button>
+          <button class="garage-choice" type="button" data-car="2" aria-pressed="false"><strong>03</strong>Rally</button>
+          <button class="garage-choice" type="button" data-car="3" aria-pressed="false"><strong>04</strong>Track</button>
+          <button class="garage-choice" type="button" data-car="4" aria-pressed="false"><strong>05</strong>Off-road</button>
+        </div>
+      </div>
+      <div class="garage-row">
+        <div class="garage-section">
+          <h3>Paint shop</h3>
+          <div class="paint-row" id="paint-choices">
+            <button class="paint-choice" type="button" data-paint="0" aria-label="Signal orange" title="Signal orange" style="background:#e86624" aria-pressed="true"></button>
+            <button class="paint-choice" type="button" data-paint="1" aria-label="Cobalt blue" title="Cobalt blue" style="background:#2a58c6" aria-pressed="false"></button>
+            <button class="paint-choice" type="button" data-paint="2" aria-label="Chalk white" title="Chalk white" style="background:#e8e8e2" aria-pressed="false"></button>
+            <button class="paint-choice" type="button" data-paint="3" aria-label="Pine green" title="Pine green" style="background:#227a58" aria-pressed="false"></button>
+            <button class="paint-choice" type="button" data-paint="4" aria-label="Taxi yellow" title="Taxi yellow" style="background:#e6bc28" aria-pressed="false"></button>
+            <button class="paint-choice" type="button" data-paint="5" aria-label="Crimson" title="Crimson" style="background:#a0202c" aria-pressed="false"></button>
+            <button class="paint-choice" type="button" data-paint="6" aria-label="Graphite" title="Graphite" style="background:#3a3c42" aria-pressed="false"></button>
+          </div>
+        </div>
+        <div class="garage-section">
+          <h3>Performance</h3>
+          <div class="upgrade-row" id="upgrade-choices">
+            <button class="upgrade-choice" type="button" data-upgrade="0" aria-pressed="true">Stock</button>
+            <button class="upgrade-choice" type="button" data-upgrade="1" aria-pressed="false">Sport</button>
+            <button class="upgrade-choice" type="button" data-upgrade="2" aria-pressed="false">Race</button>
+          </div>
+        </div>
+      </div>
+      <div id="garage-summary" aria-live="polite">Street setup · Signal orange · Stock power</div>
+      <button id="go" class="btn" type="button">Drive</button>
+      <div class="fine">Five setup presets use the same soft-body car model in this build. W / S to accelerate and brake, A / D to steer, Space for handbrake.</div>
+    </div>
+  </div>
+
+  <div id="pause" class="overlay hide">
+    <div class="card panel">
+      <h2>Paused</h2>
+      <p>Press Esc to keep driving. R repairs the car where it sits, Backspace sends it back to the start.</p>
+      <button id="resume" class="btn" type="button">Resume</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// atti.drive physics: node/beam soft bodies, rigid props, terrain + static collisions.
+// Units are SI, y is up. Runs in the browser and in Node (for tests).
+(function (G) {
+'use strict';
+const KP = 2.0e5, KD = 560;     // soft-node contact stiffness / damping (per kg)
+const KPR = 1.0e5, KDR = 420;   // rigid-prop contact stiffness / damping (per kg)
+const PR = 0.35;                // plastic flow rate per step
+
+class SoftBody {
+  constructor() { this._n = []; this._b = []; }
+  node(x, y, z, m, r, mu) {
+    this._n.push([x, y, z, m, r === undefined ? 0.13 : r, mu === undefined ? 0.8 : mu]);
+    return this._n.length - 1;
+  }
+  beam(a, b, k, c, ys) { this._b.push([a, b, k, c, ys]); }
+  build() {
+    const N = this._n.length, B = this._b.length;
+    this.N = N; this.B = B;
+    const f = () => new Float64Array(N);
+    this.px = f(); this.py = f(); this.pz = f();
+    this.vx = f(); this.vy = f(); this.vz = f();
+    this.fx = f(); this.fy = f(); this.fz = f();
+    this.ox = f(); this.oy = f(); this.oz = f();
+    this.m = f(); this.r = f(); this.mu = f(); this.dmg = f();
+    for (let i = 0; i < N; i++) {
+      const n = this._n[i];
+      this.px[i] = this.ox[i] = n[0]; this.py[i] = this.oy[i] = n[1]; this.pz[i] = this.oz[i] = n[2];
+      this.m[i] = n[3]; this.r[i] = n[4]; this.mu[i] = n[5];
+    }
+    const g = () => new Float64Array(B);
+    this.ba = new Int32Array(B); this.bb = new Int32Array(B);
+    this.L0 = g(); this.L00 = g(); this.k = g(); this.c = g(); this.ys = g(); this.strain = g();
+    for (let j = 0; j < B; j++) {
+      const q = this._b[j], a = q[0], b = q[1];
+      this.ba[j] = a; this.bb[j] = b; this.k[j] = q[2]; this.c[j] = q[3]; this.ys[j] = q[4];
+      const L = Math.hypot(this.px[b] - this.px[a], this.py[b] - this.py[a], this.pz[b] - this.pz[a]);
+      this.L0[j] = this.L00[j] = L;
+    }
+    this.dmgTotal = 0;
+  }
+  restoreShape() {
+    for (let j = 0; j < this.B; j++) this.L0[j] = this.L00[j];
+    this.dmg.fill(0); this.dmgTotal = 0;
+  }
+  beams() {
+    const { px, py, pz, vx, vy, vz, fx, fy, fz, ba, bb, L0, L00, k, c, ys, strain, dmg } = this;
+    let dm = 0;
+    for (let j = 0, B = this.B; j < B; j++) {
+      const a = ba[j], b = bb[j];
+      const dx = px[b] - px[a], dy = py[b] - py[a], dz = pz[b] - pz[a];
+      const L = Math.sqrt(dx * dx + dy * dy + dz * dz) + 1e-9, il = 1 / L;
+      const nx = dx * il, ny = dy * il, nz = dz * il;
+      const s = L - L0[j];
+      const rv = (vx[b] - vx[a]) * nx + (vy[b] - vy[a]) * ny + (vz[b] - vz[a]) * nz;
+      const F = k[j] * s + c[j] * rv;
+      fx[a] += F * nx; fy[a] += F * ny; fz[a] += F * nz;
+      fx[b] -= F * nx; fy[b] -= F * ny; fz[b] -= F * nz;
+      strain[j] = s / L0[j];
+      const y = ys[j] * L0[j];
+      let d = 0;
+      if (s > y) d = (s - y) * PR;
+      else if (s < -y && L0[j] > 0.35 * L00[j]) d = (s + y) * PR;
+      if (d !== 0) {
+        L0[j] += d;
+        const e = Math.abs(d) / L00[j];
+        dmg[a] += e * 0.5; dmg[b] += e * 0.5; dm += e;
+      }
+    }
+    this.dmgTotal += dm;
+  }
+}
+
+class Rigid {
+  constructor(x, y, z, hx, hy, hz, mass, color) {
+    this.p = [x, y, z]; this.v = [0, 0, 0]; this.w = [0, 0, 0];
+    this.ax = [1, 0, 0]; this.ay = [0, 1, 0]; this.az = [0, 0, 1];
+    this.h = [hx, hy, hz]; this.m = mass; this.color = color;
+    this.I = [mass / 3 * (hy * hy + hz * hz), mass / 3 * (hx * hx + hz * hz), mass / 3 * (hx * hx + hy * hy)];
+    this.f = [0, 0, 0]; this.tq = [0, 0, 0];
+    this.asleep = true; this.t = 0;
+    this.hr = Math.hypot(hx, hy, hz);
+  }
+  setYaw(a) {
+    const c = Math.cos(a), s = Math.sin(a);
+    this.ax = [c, 0, -s]; this.ay = [0, 1, 0]; this.az = [s, 0, c];
+  }
+  corner(k, out) {
+    const sx = (k & 1 ? 1 : -1) * this.h[0], sy = (k & 2 ? 1 : -1) * this.h[1], sz = (k & 4 ? 1 : -1) * this.h[2];
+    const a = this.ax, b = this.ay, c = this.az, p = this.p;
+    out[0] = p[0] + a[0] * sx + b[0] * sy + c[0] * sz;
+    out[1] = p[1] + a[1] * sx + b[1] * sy + c[1] * sz;
+    out[2] = p[2] + a[2] * sx + b[2] * sy + c[2] * sz;
+  }
+  wake() { this.asleep = false; this.t = 0; }
+  integrate(dt) {
+    if (this.asleep) return;
+    const im = 1 / this.m, v = this.v, w = this.w, p = this.p, f = this.f, tq = this.tq;
+    for (let i = 0; i < 3; i++) { v[i] += f[i] * im * dt; v[i] *= 1 - 0.02 * dt; p[i] += v[i] * dt; }
+    const ax = this.ax, ay = this.ay, az = this.az, I = this.I;
+    const tx = (tq[0] * ax[0] + tq[1] * ax[1] + tq[2] * ax[2]) / I[0];
+    const ty = (tq[0] * ay[0] + tq[1] * ay[1] + tq[2] * ay[2]) / I[1];
+    const tz = (tq[0] * az[0] + tq[1] * az[1] + tq[2] * az[2]) / I[2];
+    for (let i = 0; i < 3; i++) { w[i] += (ax[i] * tx + ay[i] * ty + az[i] * tz) * dt; w[i] *= 1 - 0.4 * dt; }
+    const rot = (u) => {
+      const cx = w[1] * u[2] - w[2] * u[1], cy = w[2] * u[0] - w[0] * u[2], cz = w[0] * u[1] - w[1] * u[0];
+      u[0] += cx * dt; u[1] += cy * dt; u[2] += cz * dt;
+    };
+    rot(ax); rot(ay);
+    let l = Math.hypot(ax[0], ax[1], ax[2]); ax[0] /= l; ax[1] /= l; ax[2] /= l;
+    const d = ax[0] * ay[0] + ax[1] * ay[1] + ax[2] * ay[2];
+    ay[0] -= ax[0] * d; ay[1] -= ax[1] * d; ay[2] -= ax[2] * d;
+    l = Math.hypot(ay[0], ay[1], ay[2]); ay[0] /= l; ay[1] /= l; ay[2] /= l;
+    az[0] = ax[1] * ay[2] - ax[2] * ay[1]; az[1] = ax[2] * ay[0] - ax[0] * ay[2]; az[2] = ax[0] * ay[1] - ax[1] * ay[0];
+    const sp = Math.hypot(v[0], v[1], v[2]), sw = Math.hypot(w[0], w[1], w[2]);
+    if (sp < 0.07 && sw < 0.1) { this.t += dt; if (this.t > 0.6) { this.asleep = true; v[0] = v[1] = v[2] = 0; w[0] = w[1] = w[2] = 0; } }
+    else this.t = 0;
+  }
+}
+
+class World {
+  constructor() {
+    this.soft = []; this.rigid = []; this.statics = []; this.vehicles = [];
+    this.terrain = { h: () => 0, normal: (x, z, o) => { o[0] = 0; o[1] = 1; o[2] = 0; } };
+    this.dt = 1 / 1000; this.g = 9.81; this.time = 0; this.crash = 0;
+    this._o = new Float64Array(24); this._nm = [0, 1, 0]; this._c = [0, 0, 0];
+  }
+  addStatic(cx, cy, cz, hx, hy, hz, yaw, color) {
+    const s = { cx, cy, cz, hx, hy, hz, yaw: yaw || 0, c: Math.cos(yaw || 0), s: Math.sin(yaw || 0), color, br: Math.hypot(hx, hz) };
+    this.statics.push(s); return s;
+  }
+  queryWorld(x, y, z, r, out) {
+    let n = 0;
+    const T = this.terrain, h = T.h(x, z);
+    if (y - r < h) {
+      const nm = this._nm; T.normal(x, z, nm);
+      const pen = (h + r - y) * nm[1];
+      if (pen > 0) { out[0] = nm[0]; out[1] = nm[1]; out[2] = nm[2]; out[3] = pen; out[4] = 1.0; out[5] = 0; n = 1; }
+    }
+    const S = this.statics;
+    for (let i = 0; i < S.length; i++) {
+      const s = S[i], dx = x - s.cx, dz = z - s.cz, rr = s.br + r;
+      if (dx * dx + dz * dz > rr * rr) continue;
+      const dy = y - s.cy; if (Math.abs(dy) > s.hy + r) continue;
+      const lx = s.c * dx - s.s * dz, lz = s.s * dx + s.c * dz;
+      const px = s.hx + r - Math.abs(lx), pz = s.hz + r - Math.abs(lz), py = s.hy + r - Math.abs(dy);
+      if (px <= 0 || pz <= 0 || py <= 0) continue;
+      let nlx = 0, ny = 0, nlz = 0, pen;
+      if (px <= pz && px <= py) { nlx = lx < 0 ? -1 : 1; pen = px; }
+      else if (pz <= py) { nlz = lz < 0 ? -1 : 1; pen = pz; }
+      else { ny = dy < 0 ? -1 : 1; pen = py; }
+      const o = n * 6;
+      out[o] = nlx * s.c + nlz * s.s; out[o + 1] = ny; out[o + 2] = -nlx * s.s + nlz * s.c;
+      out[o + 3] = pen; out[o + 4] = 0.6; out[o + 5] = 1; n++;
+      if (n >= 4) break;
+    }
+    return n;
+  }
+  nodeContact(b, i, nx, ny, nz, pen, mu, isS) {
+    const dt = this.dt, m = b.m[i];
+    const vx = b.vx[i], vy = b.vy[i], vz = b.vz[i];
+    const vn = vx * nx + vy * ny + vz * nz;
+    let fn = m * (KP * pen - (vn < 0 ? KD : KD * 0.15) * vn);
+    if (fn < 0) fn = 0;
+    let Fx = fn * nx, Fy = fn * ny, Fz = fn * nz;
+    const tx = vx - vn * nx, ty = vy - vn * ny, tz = vz - vn * nz;
+    const tm = Math.sqrt(tx * tx + ty * ty + tz * tz);
+    if (tm > 1e-6) {
+      const ft = Math.min(mu * fn, m * tm / dt * 0.5) / tm;
+      Fx -= ft * tx; Fy -= ft * ty; Fz -= ft * tz;
+    }
+    b.fx[i] += Fx; b.fy[i] += Fy; b.fz[i] += Fz;
+    if (isS) this.crash += fn * dt;
+  }
+  // force F applied to point `rr` (relative to rigid R centre)
+  rigidForce(R, rr, Fx, Fy, Fz) {
+    R.f[0] += Fx; R.f[1] += Fy; R.f[2] += Fz;
+    R.tq[0] += rr[1] * Fz - rr[2] * Fy; R.tq[1] += rr[2] * Fx - rr[0] * Fz; R.tq[2] += rr[0] * Fy - rr[1] * Fx;
+  }
+  pointVel(R, rr, out) {
+    out[0] = R.v[0] + R.w[1] * rr[2] - R.w[2] * rr[1];
+    out[1] = R.v[1] + R.w[2] * rr[0] - R.w[0] * rr[2];
+    out[2] = R.v[2] + R.w[0] * rr[1] - R.w[1] * rr[0];
+  }
+  // soft nodes against statics, ground, and rigid props
+  collideNodes() {
+    const o = this._o, dt = this.dt, rr = [0, 0, 0], pv = [0, 0, 0];
+    for (const b of this.soft) {
+      let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, z0 = 1e9, z1 = -1e9;
+      for (let i = 0; i < b.N; i++) {
+        const x = b.px[i], y = b.py[i], z = b.pz[i];
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; if (z < z0) z0 = z; if (z > z1) z1 = z;
+      }
+      const near = [];
+      for (const R of this.rigid) {
+        const m = R.hr + 0.4;
+        if (R.p[0] + m < x0 || R.p[0] - m > x1 || R.p[1] + m < y0 || R.p[1] - m > y1 || R.p[2] + m < z0 || R.p[2] - m > z1) continue;
+        near.push(R);
+      }
+      for (let i = 0; i < b.N; i++) {
+        const x = b.px[i], y = b.py[i], z = b.pz[i], r = b.r[i];
+        const n = this.queryWorld(x, y, z, r, o);
+        for (let q = 0; q < n; q++) { const j = q * 6; this.nodeContact(b, i, o[j], o[j + 1], o[j + 2], o[j + 3], b.mu[i] * o[j + 4], o[j + 5] > 0); }
+        for (const R of near) {
+          const dx = x - R.p[0], dy = y - R.p[1], dz = z - R.p[2], rad = R.hr + r;
+          if (dx * dx + dy * dy + dz * dz > rad * rad) continue;
+          const lx = dx * R.ax[0] + dy * R.ax[1] + dz * R.ax[2];
+          const ly = dx * R.ay[0] + dy * R.ay[1] + dz * R.ay[2];
+          const lz = dx * R.az[0] + dy * R.az[1] + dz * R.az[2];
+          const px = R.h[0] + r - Math.abs(lx), py = R.h[1] + r - Math.abs(ly), pz = R.h[2] + r - Math.abs(lz);
+          if (px <= 0 || py <= 0 || pz <= 0) continue;
+          let ax, sg, pen;
+          if (px <= py && px <= pz) { ax = R.ax; sg = lx < 0 ? -1 : 1; pen = px; }
+          else if (py <= pz) { ax = R.ay; sg = ly < 0 ? -1 : 1; pen = py; }
+          else { ax = R.az; sg = lz < 0 ? -1 : 1; pen = pz; }
+          const nx = ax[0] * sg, ny = ax[1] * sg, nz = ax[2] * sg;
+          rr[0] = dx - nx * r; rr[1] = dy - ny * r; rr[2] = dz - nz * r;
+          this.pointVel(R, rr, pv);
+          const rvx = b.vx[i] - pv[0], rvy = b.vy[i] - pv[1], rvz = b.vz[i] - pv[2];
+          const vn = rvx * nx + rvy * ny + rvz * nz;
+          const meff = Math.min(b.m[i], R.m);
+          let fn = meff * (KP * pen - (vn < 0 ? KD : KD * 0.15) * vn); if (fn < 0) fn = 0;
+          let Fx = fn * nx, Fy = fn * ny, Fz = fn * nz;
+          const tx = rvx - vn * nx, ty = rvy - vn * ny, tz = rvz - vn * nz, tm = Math.sqrt(tx * tx + ty * ty + tz * tz);
+          if (tm > 1e-6) { const ft = Math.min(0.5 * fn, meff * tm / dt * 0.5) / tm; Fx -= ft * tx; Fy -= ft * ty; Fz -= ft * tz; }
+          b.fx[i] += Fx; b.fy[i] += Fy; b.fz[i] += Fz;
+          if (R.asleep) { if (Math.sqrt(rvx * rvx + rvy * rvy + rvz * rvz) > 0.15) R.wake(); }
+          else this.rigidForce(R, rr, -Fx, -Fy, -Fz);
+          this.crash += fn * dt * 0.25;
+        }
+      }
+    }
+  }
+  // rigid props: corners vs world and vs other props
+  collideRigid() {
+    const o = this._o, dt = this.dt, c = this._c, rr = [0, 0, 0], pv = [0, 0, 0], pw = [0, 0, 0], bv = [0, 0, 0];
+    const R_ = this.rigid;
+    const cornersVsBox = (A, B) => {
+      for (let k = 0; k < 8; k++) {
+        A.corner(k, c);
+        const dx = c[0] - B.p[0], dy = c[1] - B.p[1], dz = c[2] - B.p[2];
+        if (dx * dx + dy * dy + dz * dz > B.hr * B.hr) continue;
+        const lx = dx * B.ax[0] + dy * B.ax[1] + dz * B.ax[2];
+        const ly = dx * B.ay[0] + dy * B.ay[1] + dz * B.ay[2];
+        const lz = dx * B.az[0] + dy * B.az[1] + dz * B.az[2];
+        const px = B.h[0] - Math.abs(lx), py = B.h[1] - Math.abs(ly), pz = B.h[2] - Math.abs(lz);
+        if (px <= 0 || py <= 0 || pz <= 0) continue;
+        let ax, sg, pen;
+        if (px <= py && px <= pz) { ax = B.ax; sg = lx < 0 ? -1 : 1; pen = px; }
+        else if (py <= pz) { ax = B.ay; sg = ly < 0 ? -1 : 1; pen = py; }
+        else { ax = B.az; sg = lz < 0 ? -1 : 1; pen = pz; }
+        const nx = ax[0] * sg, ny = ax[1] * sg, nz = ax[2] * sg;
+        rr[0] = c[0] - A.p[0]; rr[1] = c[1] - A.p[1]; rr[2] = c[2] - A.p[2];
+        pw[0] = dx; pw[1] = dy; pw[2] = dz;
+        this.pointVel(A, rr, pv); this.pointVel(B, pw, bv);
+        const rvx = pv[0] - bv[0], rvy = pv[1] - bv[1], rvz = pv[2] - bv[2];
+        const vn = rvx * nx + rvy * ny + rvz * nz;
+        const rs = Math.sqrt(rvx * rvx + rvy * rvy + rvz * rvz);
+        if (rs > 0.2) { if (A.asleep) A.wake(); if (B.asleep) B.wake(); }
+        const meff = Math.min(A.m, B.m) / 4;
+        let fn = meff * (KPR * pen - (vn < 0 ? KDR : KDR * 0.15) * vn); if (fn < 0) fn = 0;
+        let Fx = fn * nx, Fy = fn * ny, Fz = fn * nz;
+        const tx = rvx - vn * nx, ty = rvy - vn * ny, tz = rvz - vn * nz, tm = Math.sqrt(tx * tx + ty * ty + tz * tz);
+        if (tm > 1e-6) { const ft = Math.min(0.5 * fn, meff * tm / dt * 0.5) / tm; Fx -= ft * tx; Fy -= ft * ty; Fz -= ft * tz; }
+        if (!A.asleep) this.rigidForce(A, rr, Fx, Fy, Fz);
+        if (!B.asleep) this.rigidForce(B, pw, -Fx, -Fy, -Fz);
+      }
+    };
+    for (let ia = 0; ia < R_.length; ia++) {
+      const A = R_[ia];
+      if (A.asleep) continue;
+      for (let k = 0; k < 8; k++) {
+        A.corner(k, c);
+        rr[0] = c[0] - A.p[0]; rr[1] = c[1] - A.p[1]; rr[2] = c[2] - A.p[2];
+        const n = this.queryWorld(c[0], c[1], c[2], 0, o);
+        for (let q = 0; q < n; q++) {
+          const j = q * 6, nx = o[j], ny = o[j + 1], nz = o[j + 2], pen = o[j + 3];
+          this.pointVel(A, rr, pv);
+          const vn = pv[0] * nx + pv[1] * ny + pv[2] * nz;
+          let fn = (A.m / 4) * (KPR * pen - (vn < 0 ? KDR : KDR * 0.15) * vn); if (fn < 0) fn = 0;
+          let Fx = fn * nx, Fy = fn * ny, Fz = fn * nz;
+          const tx = pv[0] - vn * nx, ty = pv[1] - vn * ny, tz = pv[2] - vn * nz, tm = Math.sqrt(tx * tx + ty * ty + tz * tz);
+          if (tm > 1e-6) { const ft = Math.min(0.55 * o[j + 4] * fn, (A.m / 4) * tm / dt * 0.5) / tm; Fx -= ft * tx; Fy -= ft * ty; Fz -= ft * tz; }
+          this.rigidForce(A, rr, Fx, Fy, Fz);
+        }
+      }
+      for (let ib = 0; ib < R_.length; ib++) {
+        if (ib === ia) continue;
+        const B = R_[ib];
+        if (!B.asleep && ib < ia) continue; // awake pairs handled once
+        const dx = A.p[0] - B.p[0], dy = A.p[1] - B.p[1], dz = A.p[2] - B.p[2], rad = A.hr + B.hr;
+        if (dx * dx + dy * dy + dz * dz > rad * rad) continue;
+        cornersVsBox(A, B); cornersVsBox(B, A);
+      }
+    }
+  }
+  step() {
+    const dt = this.dt, g = this.g;
+    for (const b of this.soft) {
+      b.fx.fill(0); b.fz.fill(0);
+      for (let i = 0; i < b.N; i++) b.fy[i] = -b.m[i] * g;
+    }
+    for (const R of this.rigid) { R.f[0] = 0; R.f[1] = -R.m * g; R.f[2] = 0; R.tq[0] = R.tq[1] = R.tq[2] = 0; }
+    for (const b of this.soft) b.beams();
+    for (const v of this.vehicles) v.update(this, dt);
+    this.collideNodes();
+    this.collideRigid();
+    for (const b of this.soft) {
+      for (let i = 0; i < b.N; i++) {
+        const im = dt / b.m[i];
+        let vx = b.vx[i] + b.fx[i] * im, vy = b.vy[i] + b.fy[i] * im, vz = b.vz[i] + b.fz[i] * im;
+        const s2 = vx * vx + vy * vy + vz * vz;
+        if (s2 > 22500) { const s = 150 / Math.sqrt(s2); vx *= s; vy *= s; vz *= s; }
+        b.vx[i] = vx; b.vy[i] = vy; b.vz[i] = vz;
+        b.px[i] += vx * dt; b.py[i] += vy * dt; b.pz[i] += vz * dt;
+      }
+    }
+    for (const R of this.rigid) R.integrate(dt);
+    this.time += dt;
+  }
+}
+
+const API = { World, SoftBody, Rigid };
+if (typeof module !== 'undefined' && module.exports) module.exports = API; else G.AD = Object.assign(G.AD || {}, API);
+})(typeof window !== 'undefined' ? window : globalThis);
+
+;
+// atti.drive proving ground: terrain heightfield, static barriers, crate props.
+(function (G) {
+'use strict';
+const AD = (typeof module !== 'undefined' && module.exports) ? require('./physics.js') : G.AD;
+
+const RAMPS = [
+  // u runs along (cos yaw, sin yaw) from the foot (u=0) to the lip (u=len)
+  { x: 55, z: 0, yaw: 0, len: 14, w: 9, h: 2.8 },
+  { x: 150, z: 70, yaw: 0, len: 26, w: 12, h: 7.0 },
+  { x: -40, z: 70, yaw: -Math.PI / 2, len: 9, w: 7, h: 1.4 },
+  { x: 20, z: -110, yaw: Math.PI / 2, len: 16, w: 10, h: 3.6 },
+];
+const HILLS = [{ x: -100, z: -60, s: 18, h: 11 }, { x: 60, z: 130, s: 12, h: 4 }];
+const RAMP_PREP = RAMPS.map(r => Object.assign({ c: Math.cos(r.yaw), s: Math.sin(r.yaw) }, r));
+
+function smooth(t) { return t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t); }
+
+function height(x, z) {
+  let y = 0;
+  for (let i = 0; i < RAMP_PREP.length; i++) {
+    const r = RAMP_PREP[i], dx = x - r.x, dz = z - r.z;
+    const u = r.c * dx + r.s * dz, v = -r.s * dx + r.c * dz;
+    if (u < 0 || u > r.len) continue;
+    const hv = r.w / 2, av = Math.abs(v);
+    if (av > hv + 2) continue;
+    const side = 1 - smooth((av - hv) / 2 + 0.0);
+    const t = u / r.len;
+    const yy = r.h * Math.pow(t, 1.5) * (av <= hv ? 1 : side);
+    if (yy > y) y = yy;
+  }
+  for (let i = 0; i < HILLS.length; i++) {
+    const hl = HILLS[i], dx = x - hl.x, dz = z - hl.z, d2 = dx * dx + dz * dz;
+    if (d2 < 9 * hl.s * hl.s) y += hl.h * Math.exp(-d2 / (2 * hl.s * hl.s));
+  }
+  // rumble field
+  if (x > 0 && x < 70 && z < -45 && z > -85) {
+    const mx = smooth((x) / 6) * smooth((70 - x) / 6), mz = smooth((-45 - z) / 6) * smooth((z + 85) / 6);
+    y += 0.2 * mx * mz * Math.sin(x * 0.85) * Math.cos(z * 0.7);
+  }
+  return y;
+}
+function normal(x, z, o) {
+  const e = 0.25;
+  const dx = height(x + e, z) - height(x - e, z), dz = height(x, z + e) - height(x, z - e);
+  const nx = -dx / (2 * e), nz = -dz / (2 * e), l = Math.sqrt(nx * nx + 1 + nz * nz);
+  o[0] = nx / l; o[1] = 1 / l; o[2] = nz / l;
+}
+
+const CRATE = [[176, 132, 82], [160, 118, 70], [190, 148, 96], [150, 112, 68]];
+const CONCRETE = [150, 150, 144];
+const ORANGE = [232, 112, 40];
+
+function crate(world, x, y, z, s, mass, yaw, col) {
+  const R = new AD.Rigid(x, y, z, s / 2, s / 2, s / 2, mass, col || CRATE[(Math.abs(Math.floor(x * 7 + z * 13 + y * 3))) % 4]);
+  R.setYaw(yaw || 0); world.rigid.push(R); return R;
+}
+
+function buildLevel(world) {
+  world.terrain = { h: height, normal };
+  // head-on crash wall and side walls
+  world.addStatic(120, 1.5, 0, 0.8, 1.5, 16, 0, CONCRETE);
+  world.addStatic(110, 0.6, 18, 6, 0.6, 0.4, 0, CONCRETE);
+  world.addStatic(110, 0.6, -18, 6, 0.6, 0.4, 0, CONCRETE);
+  // chicane of jersey barriers
+  for (let i = 0; i < 6; i++) world.addStatic(-30 - i * 9, 0.45, (i % 2 ? 4.5 : -4.5), 1.6, 0.45, 0.35, 0.2 * (i % 2 ? 1 : -1), ORANGE);
+  // pillars
+  for (let i = 0; i < 5; i++) world.addStatic(-20 + i * 12, 1.6, 40, 0.35, 1.6, 0.35, 0, CONCRETE);
+  buildProps(world);
+}
+
+function buildProps(world) {
+  world.rigid.length = 0;
+  // crate pyramids
+  const pyramid = (cx, cz, rows) => {
+    for (let r = 0; r < rows; r++) for (let c = 0; c < rows - r; c++) {
+      const x = cx, z = cz + (c - (rows - r - 1) / 2) * 1.02, y = 0.45 + r * 0.9;
+      crate(world, x, y, z, 0.9, 22);
+    }
+  };
+  pyramid(25, 22, 5); pyramid(25, -22, 5); pyramid(-20, -28, 4);
+  // crate wall
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 8; c++) crate(world, -62, 0.45 + r * 0.9, -3.6 + c * 1.02, 0.9, 18);
+  // bowling pins
+  let k = 0;
+  for (let row = 0; row < 4; row++) for (let c = 0; c <= row; c++) {
+    const R = new AD.Rigid(85 + row * 1.2, 0.5, -30 + (c - row / 2) * 1.2, 0.17, 0.5, 0.17, 5, [236, 232, 220]);
+    world.rigid.push(R); k++;
+  }
+  // cone slalom
+  for (let i = 0; i < 8; i++) {
+    const R = new AD.Rigid(14 + i * 8, 0.3, (i % 2 ? 3.2 : -3.2), 0.2, 0.3, 0.2, 3, ORANGE);
+    world.rigid.push(R);
+  }
+}
+
+const API = { buildLevel, buildProps, height, normal, RAMPS, HILLS };
+if (typeof module !== 'undefined' && module.exports) module.exports = API; else G.AD = Object.assign(G.AD || {}, API);
+})(typeof window !== 'undefined' ? window : globalThis);
+
+;
+// atti.drive hatchback: soft-body chassis (54 nodes) with sprung, steered, driven tyres.
+(function (G) {
+'use strict';
+const AD = (typeof module !== 'undefined' && module.exports) ? require('./physics.js') : G.AD;
+
+const WR = 0.32, L_MAX = 0.50, L_MIN = 0.22, MOUNT_UP = 0.42;
+const KS = 24000, C_BUMP = 1800, C_REB = 3400, KARB = 14000, K_BUMP_STOP = 2.5e5;
+const GEARS = [0, 3.0, 1.9, 1.4, 1.1, 0.9], REV = -2.9, FINAL = 3.4;
+const CURVE = [[900, 0.5], [1500, 0.68], [2500, 0.86], [4200, 1], [5500, 0.95], [6500, 0.78], [7000, 0]];
+const TPK = 330, BX = 9, CX = 1.45, BY = 7.5, CY = 1.4, MU = 1.15, MASS = 1150;
+
+const ST = [
+  { x: 2.05, low: 0.30, mid: 0.60, top: 0.78, tw: 0.70 },
+  { x: 1.30, low: 0.28, mid: 0.70, top: 0.93, tw: 0.74 },
+  { x: 0.60, low: 0.28, mid: 0.74, top: 1.00, tw: 0.74 },
+  { x: -0.15, low: 0.28, mid: 0.78, top: 1.42, tw: 0.62 },
+  { x: -1.25, low: 0.28, mid: 0.78, top: 1.40, tw: 0.62 },
+  { x: -2.05, low: 0.30, mid: 0.66, top: 0.92, tw: 0.68 },
+];
+const id = (s, l, j) => (s * 3 + l) * 3 + j;
+
+function curve(rpm) {
+  if (rpm <= CURVE[0][0]) return CURVE[0][1];
+  for (let i = 1; i < CURVE.length; i++) {
+    if (rpm <= CURVE[i][0]) { const a = CURVE[i - 1], b = CURVE[i]; return a[1] + (b[1] - a[1]) * (rpm - a[0]) / (b[0] - a[0]); }
+  }
+  return 0;
+}
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+
+class Car {
+  constructor(world) {
+    this.world = world; this.id = id;
+    const body = this.body = new AD.SoftBody();
+    // nodes, weighted so the engine bay is heavy
+    const wl = [1.0, 2.0, 1.4, 1.1, 1.2, 1.0], wt = [];
+    let sum = 0;
+    for (let s = 0; s < 6; s++) for (let l = 0; l < 3; l++) for (let j = 0; j < 3; j++) {
+      const w = wl[s] * (l === 0 ? 1 : l === 1 ? 0.7 : 0.45) * (j === 1 ? 1.3 : 1); wt.push(w); sum += w;
+    }
+    for (let s = 0; s < 6; s++) for (let l = 0; l < 3; l++) for (let j = 0; j < 3; j++) {
+      const S = ST[s], y = l === 0 ? S.low : l === 1 ? S.mid : S.top, hw = l === 0 ? 0.74 : l === 1 ? 0.82 : S.tw;
+      body.node(S.x, y, (j - 1) * hw, wt[id(s, l, j)] / sum * MASS, 0.13, 0.7);
+    }
+    const seen = new Set(), lvl = (n) => Math.floor(n / 3) % 3, stn = (n) => Math.floor(n / 9);
+    for (let s = 0; s < 5; s++) for (let l = 0; l < 2; l++) for (let j = 0; j < 2; j++) {
+      const c = [];
+      for (let m = 0; m < 8; m++) c.push(id(s + (m & 1), l + ((m >> 1) & 1), j + ((m >> 2) & 1)));
+      for (let a = 0; a < 8; a++) for (let b = a + 1; b < 8; b++) {
+        const na = c[a], nb = c[b], key = na < nb ? na * 100 + nb : nb * 100 + na;
+        if (seen.has(key)) continue; seen.add(key);
+        const lmin = Math.min(lvl(na), lvl(nb)), lmax = Math.max(lvl(na), lvl(nb));
+        let k = lmax === 0 ? 8e5 : lmin === 0 ? 6e5 : (lmin === 2 ? 2.5e5 : 4e5), ys = lmax === 0 ? 0.024 : 0.016;
+        if (Math.max(stn(na), stn(nb)) <= 1 || Math.min(stn(na), stn(nb)) >= 4) { k *= 0.4; ys *= 1.3; }
+        body.beam(na, nb, k, k * 0.0009, ys);
+      }
+    }
+    body.build();
+    world.soft.push(body); world.vehicles.push(this);
+    // wheels: FL FR RL RR
+    this.wheels = [[1, 0, true], [1, 2, true], [4, 0, false], [4, 2, false]].map(([s, j, front]) => ({
+      s, j, front, low: id(s, 0, j), mid: id(s, 1, j), side: j === 0 ? -1 : 1,
+      omega: 0, spin: 0, Ls: L_MAX - 0.12, contact: false, Fn: 0, n: [0, 1, 0], pos: [0, 0, 0], slip: 0, M: [0, 0, 0], vM: [0, 0, 0],
+    }));
+    this.input = { thr: 0, brk: 0, steer: 0, hand: 0 };
+    this.steer = 0; this.gear = 1; this.shiftT = 0; this.rpm = 1000; this.tc = true; this.speed = 0; this.fv = 0;
+    this.vel = [0, 0, 0]; this.F = null; this.frame();
+    this.buildFaces();
+  }
+  buildFaces() {
+    const f = this.faces = [];
+    const add = (n, t) => f.push({ n, t });
+    for (const j of [0, 2]) for (let s = 0; s < 5; s++) for (let l = 0; l < 2; l++)
+      add([id(s, l, j), id(s + 1, l, j), id(s + 1, l + 1, j), id(s, l + 1, j)], (l === 1 && (s === 2 || s === 3)) ? 'glass' : 'paint');
+    for (let s = 0; s < 5; s++) for (let j = 0; j < 2; j++)
+      add([id(s, 2, j), id(s + 1, 2, j), id(s + 1, 2, j + 1), id(s, 2, j + 1)], (s === 2 || s === 4) ? 'glass' : 'paint');
+    for (let s = 0; s < 5; s++) for (let j = 0; j < 2; j++)
+      add([id(s, 0, j), id(s + 1, 0, j), id(s + 1, 0, j + 1), id(s, 0, j + 1)], 'dark');
+    for (let l = 0; l < 2; l++) for (let j = 0; j < 2; j++) {
+      add([id(0, l, j), id(0, l, j + 1), id(0, l + 1, j + 1), id(0, l + 1, j)], l === 0 ? 'dark' : 'lamp');
+      add([id(5, l, j), id(5, l, j + 1), id(5, l + 1, j + 1), id(5, l + 1, j)], l === 0 ? 'dark' : 'tail');
+    }
+  }
+  frame() {
+    const b = this.body, a = id(1, 0, 0), c = id(1, 0, 2), d = id(4, 0, 0), e = id(4, 0, 2);
+    const g = (arr) => [(arr[a] + arr[c]) / 2, (arr[d] + arr[e]) / 2, (arr[a] + arr[d]) / 2, (arr[c] + arr[e]) / 2];
+    const X = g(b.px), Y = g(b.py), Z = g(b.pz);
+    const fwd = norm([X[0] - X[1], Y[0] - Y[1], Z[0] - Z[1]]);
+    const rt0 = [X[3] - X[2], Y[3] - Y[2], Z[3] - Z[2]];
+    const up = norm(cross(rt0, fwd)), right = norm(cross(fwd, up));
+    const ctr = [(X[0] + X[1]) / 2 + up[0] * 0.4, (Y[0] + Y[1]) / 2 + up[1] * 0.4, (Z[0] + Z[1]) / 2 + up[2] * 0.4];
+    return this.F = { fwd, right, up, c: ctr };
+  }
+  reset(x, z, yaw) {
+    const b = this.body, w = this.world, c = Math.cos(yaw), s = Math.sin(yaw), h = w.terrain.h(x, z);
+    b.restoreShape();
+    for (let i = 0; i < b.N; i++) {
+      b.px[i] = x + c * b.ox[i] + s * b.oz[i]; b.pz[i] = z - s * b.ox[i] + c * b.oz[i]; b.py[i] = h + b.oy[i] + 0.02;
+      b.vx[i] = b.vy[i] = b.vz[i] = 0;
+    }
+    for (const wh of this.wheels) { wh.omega = 0; wh.Ls = L_MAX - 0.12; }
+    this.gear = 1; this.steer = 0; this.shiftT = 0; this.frame();
+  }
+  damage() { return Math.min(1, this.body.dmgTotal / 40); }
+  update(world, dt) {
+    const b = this.body, F = this.frame(), inp = this.input, T = world.terrain;
+    const fwd = F.fwd, right = F.right, up = F.up, W = this.wheels;
+    // chassis velocity and longitudinal speed
+    const a = id(1, 0, 0), c = id(1, 0, 2), d = id(4, 0, 0), e = id(4, 0, 2);
+    const vel = this.vel;
+    vel[0] = (b.vx[a] + b.vx[c] + b.vx[d] + b.vx[e]) / 4; vel[1] = (b.vy[a] + b.vy[c] + b.vy[d] + b.vy[e]) / 4; vel[2] = (b.vz[a] + b.vz[c] + b.vz[d] + b.vz[e]) / 4;
+    const fv = this.fv = vel[0] * fwd[0] + vel[1] * fwd[1] + vel[2] * fwd[2];
+    this.speed = Math.hypot(vel[0], vel[1], vel[2]);
+    // pedals and gearbox
+    let thr = inp.thr, brk = inp.brk;
+    if (this.gear >= 1) { if (brk > 0.05 && thr < 0.05 && fv < 0.8) this.gear = -1; }
+    else if (thr > 0.05 && fv > -1.0) this.gear = 1;
+    let throttle, brake;
+    if (this.gear >= 1) { throttle = thr; brake = brk; } else { throttle = brk; brake = thr; }
+    const ratio = (this.gear >= 1 ? GEARS[this.gear] : REV) * FINAL;
+    const om = (W[2].omega + W[3].omega) / 2;
+    const rpmW = Math.max(0, om * ratio * 9.5493);
+    this.shiftT = Math.max(0, this.shiftT - dt);
+    if (this.gear >= 1 && this.shiftT <= 0) {
+      if (rpmW > 6100 && this.gear < 5) { this.gear++; this.shiftT = 0.28; }
+      else if (this.gear > 1 && rpmW < 2500 && rpmW * GEARS[this.gear - 1] / GEARS[this.gear] < 5200) { this.gear--; this.shiftT = 0.2; }
+    }
+    const rpmE = Math.max(rpmW, (throttle > 0.05 && Math.abs(this.gear) === 1) ? 2600 : 1000);
+    this.rpm += (Math.min(7000, rpmE) - this.rpm) * Math.min(1, dt * 18);
+    let Te = 0;
+    if (this.shiftT <= 0 && rpmE < 6800) Te = TPK * (this.powerMultiplier || 1) * curve(rpmE) * throttle * ratio * 0.92;
+    let Tbrk = 0;
+    if (throttle < 0.05 && this.shiftT <= 0) Tbrk = -Math.sign(om) * (15 + rpmE * 0.006) * Math.abs(ratio) * 0.5 * Math.min(1, Math.abs(om) / 3);
+    if (this.tc) { const ks = Math.max(W[2].kap || 0, W[3].kap || 0) * Math.sign(ratio); Te *= 1 - Math.max(0, Math.min(0.85, (ks - 0.22) * 4)); }
+    const Td = Te / 2 + Tbrk;
+    // steering
+    const ms = 0.62 / (1 + this.speed * this.speed / 700), tgt = inp.steer * ms;
+    const rate = (Math.abs(tgt) > Math.abs(this.steer) ? 2.6 : 4.5) * dt, ds = tgt - this.steer;
+    this.steer += Math.max(-rate, Math.min(rate, ds));
+    const cs = Math.cos(this.steer), sn = Math.sin(this.steer);
+    // suspension
+    const nrm = [0, 1, 0];
+    for (const w of W) {
+      const M = w.M, vM = w.vM, lo = w.low, mi = w.mid;
+      M[0] = b.px[lo] + up[0] * MOUNT_UP; M[1] = b.py[lo] + up[1] * MOUNT_UP; M[2] = b.pz[lo] + up[2] * MOUNT_UP;
+      vM[0] = b.vx[lo] * 0.6 + b.vx[mi] * 0.4; vM[1] = b.vy[lo] * 0.6 + b.vy[mi] * 0.4; vM[2] = b.vz[lo] * 0.6 + b.vz[mi] * 0.4;
+      let tt = Math.max(0, M[1] - T.h(M[0], M[2])) / Math.max(0.3, up[1]);
+      for (let it = 0; it < 2 && tt >= 0; it++) {
+        const px = M[0] - up[0] * tt, pz = M[2] - up[2] * tt, h = T.h(px, pz);
+        T.normal(px, pz, nrm);
+        const denom = -(up[0] * nrm[0] + up[1] * nrm[1] + up[2] * nrm[2]);
+        if (denom > -0.15) { tt = -1; break; }
+        tt = ((px - M[0]) * nrm[0] + (h - M[1]) * nrm[1] + (pz - M[2]) * nrm[2]) / denom;
+      }
+      const ext = tt - WR;
+      w.contact = tt > 0 && ext < L_MAX;
+      if (w.contact) {
+        w.n[0] = nrm[0]; w.n[1] = nrm[1]; w.n[2] = nrm[2];
+        const Ls = Math.max(ext, L_MIN), vs = vM[0] * up[0] + vM[1] * up[1] + vM[2] * up[2];
+        let Fn = KS * (L_MAX - Ls) - (vs > 0 ? C_REB : C_BUMP) * vs;
+        if (ext < L_MIN) Fn += K_BUMP_STOP * (L_MIN - ext);
+        w.Ls = Ls; w.Fn = Math.max(0, Fn);
+      } else { w.Ls = L_MAX; w.Fn = 0; }
+    }
+    for (const [i, j] of [[0, 1], [2, 3]]) {
+      const L = W[i], R = W[j];
+      if (L.contact && R.contact) { const dc = (R.Ls - L.Ls) * KARB; R.Fn = Math.max(0, R.Fn - dc); L.Fn = Math.max(0, L.Fn + dc); }
+    }
+    // tyres
+    for (let q = 0; q < 4; q++) {
+      const w = W[q], M = w.M, vM = w.vM, n = w.n;
+      let Fx = 0, Fy = 0, S = 0, fx = 0, fy = 0, fz = 0, lx = 0, ly = 0, lz = 0;
+      if (w.contact && w.Fn > 0) {
+        let wx, wy, wz;
+        if (w.front) { wx = fwd[0] * cs + right[0] * sn; wy = fwd[1] * cs + right[1] * sn; wz = fwd[2] * cs + right[2] * sn; }
+        else { wx = fwd[0]; wy = fwd[1]; wz = fwd[2]; }
+        const dn = wx * n[0] + wy * n[1] + wz * n[2];
+        const f = norm([wx - n[0] * dn, wy - n[1] * dn, wz - n[2] * dn]);
+        const l = cross(f, n);
+        fx = f[0]; fy = f[1]; fz = f[2]; lx = l[0]; ly = l[1]; lz = l[2];
+        const vlong = vM[0] * fx + vM[1] * fy + vM[2] * fz, vlat = vM[0] * lx + vM[1] * ly + vM[2] * lz;
+        const vref = Math.max(Math.abs(vlong), 1.0);
+        const kap = (w.omega * WR - vlong) / vref, bk = BX * kap, at = Math.atan(bk);
+        const ux = Math.sin(CX * at), uy = -Math.sin(CY * Math.atan(BY * vlat / vref));
+        const mag = Math.hypot(ux, uy), sc = mag > 1 ? 1 / mag : 1;
+        Fx = w.Fn * MU * ux * sc - 0.012 * w.Fn * Math.max(-1, Math.min(1, vlong));
+        Fy = w.Fn * MU * uy * sc;
+        S = w.Fn * MU * Math.cos(CX * at) * CX * BX / (1 + bk * bk) * WR * WR / vref;
+        w.slip = Math.hypot(kap, vlat / vref); w.kap = kap;
+        const tx = fx * Fx + lx * Fy + up[0] * w.Fn, ty = fy * Fx + ly * Fy + up[1] * w.Fn, tz = fz * Fx + lz * Fy + up[2] * w.Fn;
+        b.fx[w.low] += tx * 0.7; b.fy[w.low] += ty * 0.7; b.fz[w.low] += tz * 0.7;
+        b.fx[w.mid] += tx * 0.3; b.fy[w.mid] += ty * 0.3; b.fz[w.mid] += tz * 0.3;
+      } else { w.slip = 0; w.kap = 0; }
+      const driven = q >= 2, I = driven ? 1.4 + 0.05 * ratio * ratio : 1.4;
+      let o = w.omega + dt * ((driven ? Td : 0) - Fx * WR) / (I + dt * S);
+      const tb = (w.front ? 1500 : 1000) * brake + (driven ? inp.hand * 3500 : 0);
+      const dmax = tb * dt / I;
+      if (Math.abs(o) <= dmax) o = 0; else o -= Math.sign(o) * dmax;
+      w.omega = o; w.spin += o * dt;
+      w.pos[0] = M[0] - up[0] * w.Ls + right[0] * 0.10 * w.side; w.pos[1] = M[1] - up[1] * w.Ls + right[1] * 0.10 * w.side; w.pos[2] = M[2] - up[2] * w.Ls + right[2] * 0.10 * w.side;
+    }
+    // aero drag
+    const k = 0.6 / b.N;
+    for (let i = 0; i < b.N; i++) {
+      const sp = Math.sqrt(b.vx[i] * b.vx[i] + b.vy[i] * b.vy[i] + b.vz[i] * b.vz[i]);
+      b.fx[i] -= k * sp * b.vx[i]; b.fy[i] -= k * sp * b.vy[i]; b.fz[i] -= k * sp * b.vz[i];
+    }
+  }
+}
+
+const API = { Car, WR };
+if (typeof module !== 'undefined' && module.exports) module.exports = API; else G.AD = Object.assign(G.AD || {}, API);
+})(typeof window !== 'undefined' ? window : globalThis);
+
+;
+// atti.drive renderer: small software 3D pipeline on a 2D canvas (painter's algorithm).
+(function (G) {
+'use strict';
+const AD = G.AD;
+const SKY_TOP = [138, 168, 199], FOG = [208, 214, 214];
+const LN = (() => { const l = Math.hypot(-0.42, 0.75, -0.37); return [-0.42 / l, 0.75 / l, -0.37 / l]; })();
+const NEAR = 0.25, GS = 6, GR = 17;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const mix = (a, b, t) => a + (b - a) * t;
+
+class Renderer {
+  constructor(canvas) {
+    this.cv = canvas; this.ctx = canvas.getContext('2d');
+    this.pool = []; this.np = 0; this.W = 0; this.H = 0; this.fl = 500;
+    this.cam = { x: 0, y: 5, z: 0, f: [1, 0, 0], r: [0, 0, 1], u: [0, 1, 0] };
+    const n = (GR * 2 + 1) * (GR * 2 + 1);
+    this.gh = new Float64Array(n); this.gx = new Float64Array(n); this.gy = new Float64Array(n); this.gz = new Float64Array(n);
+    this.tmp = new Float64Array(96); this.clip = new Float64Array(160);
+    this.resize();
+  }
+  resize() {
+    const d = Math.min(window.devicePixelRatio || 1, 2), w = this.cv.clientWidth || window.innerWidth, h = this.cv.clientHeight || window.innerHeight;
+    this.cv.width = Math.round(w * d); this.cv.height = Math.round(h * d);
+    this.ctx.setTransform(d, 0, 0, d, 0, 0); this.W = w; this.H = h;
+  }
+  setCamera(px, py, pz, tx, ty, tz, fov) {
+    let fx = tx - px, fy = ty - py, fz = tz - pz; const l = Math.hypot(fx, fy, fz) || 1; fx /= l; fy /= l; fz /= l;
+    let rx = -fz, ry = 0, rz = fx; const rl = Math.hypot(rx, rz) || 1; rx /= rl; rz /= rl;
+    const ux = ry * fz - rz * fy, uy = rz * fx - rx * fz, uz = rx * fy - ry * fx;
+    this.cam = { x: px, y: py, z: pz, f: [fx, fy, fz], r: [rx, ry, rz], u: [ux, uy, uz] };
+    this.fl = 0.5 * this.H / Math.tan(fov * Math.PI / 360);
+    if (this.W < this.H) this.fl = 0.5 * this.W / Math.tan(fov * Math.PI / 360);
+  }
+  toCam(x, y, z, o, i) {
+    const c = this.cam, dx = x - c.x, dy = y - c.y, dz = z - c.z;
+    o[i] = dx * c.r[0] + dy * c.r[1] + dz * c.r[2];
+    o[i + 1] = dx * c.u[0] + dy * c.u[1] + dz * c.u[2];
+    o[i + 2] = dx * c.f[0] + dy * c.f[1] + dz * c.f[2];
+  }
+  // push polygon given camera-space verts v[0..n*3)
+  push(layer, v, n, r, g, b, a, stroke, bias) {
+    // near-plane clip
+    let m = 0, cl = this.clip;
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n, ax = v[i * 3], ay = v[i * 3 + 1], az = v[i * 3 + 2], bx = v[j * 3], by = v[j * 3 + 1], bz = v[j * 3 + 2];
+      const ina = az >= NEAR, inb = bz >= NEAR;
+      if (ina) { cl[m * 3] = ax; cl[m * 3 + 1] = ay; cl[m * 3 + 2] = az; m++; }
+      if (ina !== inb) {
+        const t = (NEAR - az) / (bz - az);
+        cl[m * 3] = ax + (bx - ax) * t; cl[m * 3 + 1] = ay + (by - ay) * t; cl[m * 3 + 2] = NEAR; m++;
+      }
+    }
+    if (m < 3) return;
+    let P = this.pool[this.np];
+    if (!P) P = this.pool[this.np] = { pts: [], layer: 0, depth: 0, col: '', a: 1, st: null };
+    const pts = P.pts; pts.length = m * 2;
+    const W = this.W, H = this.H, fl = this.fl, hw = W / 2, hh = H / 2;
+    let dsum = 0, minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9;
+    for (let i = 0; i < m; i++) {
+      const z = cl[i * 3 + 2], k = fl / z, sx = hw + cl[i * 3] * k, sy = hh - cl[i * 3 + 1] * k;
+      pts[i * 2] = sx; pts[i * 2 + 1] = sy; dsum += z;
+      if (sx < minx) minx = sx; if (sx > maxx) maxx = sx; if (sy < miny) miny = sy; if (sy > maxy) maxy = sy;
+    }
+    if (maxx < 0 || minx > W || maxy < 0 || miny > H) return;
+    const d = dsum / m;
+    P.layer = layer; P.depth = d + (bias || 0); P.a = a;
+    const f = clamp((d - 40) / 160, 0, 0.85);
+    P.col = 'rgb(' + ((r + (FOG[0] - r) * f) | 0) + ',' + ((g + (FOG[1] - g) * f) | 0) + ',' + ((b + (FOG[2] - b) * f) | 0) + ')';
+    P.st = stroke === true ? P.col : stroke || null;
+    this.np++;
+  }
+  // ----- scene pieces -----
+  ground(world) {
+    const c = this.cam, T = world.terrain, n = GR * 2 + 1, tmp = this.tmp;
+    const ix0 = Math.floor(c.x / GS), iz0 = Math.floor(c.z / GS);
+    const gh = this.gh, gx = this.gx, gy = this.gy, gz = this.gz;
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      const k = j * n + i, x = (ix0 + i - GR) * GS, z = (iz0 + j - GR) * GS, h = T.h(x, z);
+      gh[k] = h; this.toCam(x, h, z, tmp, 0); gx[k] = tmp[0]; gy[k] = tmp[1]; gz[k] = tmp[2];
+    }
+    for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
+      const a = j * n + i, b = a + 1, d = a + n, e = d + 1;
+      if (gz[a] < NEAR && gz[b] < NEAR && gz[d] < NEAR && gz[e] < NEAR) continue;
+      const gxi = ix0 + i - GR, gzi = iz0 + j - GR;
+      const dhx = ((gh[b] + gh[e]) - (gh[a] + gh[d])) / (2 * GS), dhz = ((gh[d] + gh[e]) - (gh[a] + gh[b])) / (2 * GS);
+      const l = Math.sqrt(dhx * dhx + 1 + dhz * dhz), nl = (-dhx * LN[0] + LN[1] - dhz * LN[2]) / l;
+      let col = ((gxi + gzi) & 1) ? [124, 128, 120] : [114, 118, 111];
+      if (((gxi % 8) + 8) % 8 === 0 || ((gzi % 8) + 8) % 8 === 0) col = [176, 176, 164];
+      const avgh = (gh[a] + gh[b] + gh[d] + gh[e]) / 4;
+      const sh = clamp(0.62 + 0.45 * nl, 0.4, 1.15);
+      let r = col[0] * sh, g = col[1] * sh, bl = col[2] * sh;
+      if (dhx * dhx + dhz * dhz < 0.12 && avgh > 1.2) { r = mix(r, 108, 0.45); g = mix(g, 128, 0.45); bl = mix(bl, 92, 0.45); }
+      tmp[0] = gx[a]; tmp[1] = gy[a]; tmp[2] = gz[a]; tmp[3] = gx[b]; tmp[4] = gy[b]; tmp[5] = gz[b];
+      tmp[6] = gx[e]; tmp[7] = gy[e]; tmp[8] = gz[e]; tmp[9] = gx[d]; tmp[10] = gy[d]; tmp[11] = gz[d];
+      const dist = Math.hypot((gxi + 0.5) * GS - c.x, (gzi + 0.5) * GS - c.z), f = clamp((dist - 24) / (GR * GS - 34), 0, 1);
+      const ff = f * f * (3 - 2 * f);
+      this.push(0, tmp, 4, mix(r, FOG[0], ff), mix(g, FOG[1], ff), mix(bl, FOG[2], ff), 1, true, 0);
+    }
+  }
+  shadowQuad(world, x, z, hx, hz, yaw, a) {
+    const h = world.terrain.h(x, z) + 0.03, c = Math.cos(yaw), s = Math.sin(yaw), tmp = this.tmp;
+    const X = [-hx, hx, hx, -hx], Z = [-hz, -hz, hz, hz];
+    for (let i = 0; i < 4; i++) this.toCam(x + c * X[i] + s * Z[i], h, z - s * X[i] + c * Z[i], tmp, i * 3);
+    this.push(1, tmp, 4, 20, 22, 20, a, null, 0);
+  }
+  box(p, ax, ay, az, hx, hy, hz, col, edge, sd) {
+    const tmp = this.tmp, cw = this.cw || (this.cw = new Float64Array(24));
+    for (let k = 0; k < 8; k++) {
+      const sx = (k & 1 ? 1 : -1) * hx, sy = (k & 2 ? 1 : -1) * hy, sz = (k & 4 ? 1 : -1) * hz;
+      cw[k * 3] = p[0] + ax[0] * sx + ay[0] * sy + az[0] * sz;
+      cw[k * 3 + 1] = p[1] + ax[1] * sx + ay[1] * sy + az[1] * sz;
+      cw[k * 3 + 2] = p[2] + ax[2] * sx + ay[2] * sy + az[2] * sz;
+    }
+    const FACES = [[1, 3, 7, 5, ax, 1], [0, 4, 6, 2, ax, -1], [2, 6, 7, 3, ay, 1], [0, 1, 5, 4, ay, -1], [4, 5, 7, 6, az, 1], [0, 2, 3, 1, az, -1]];
+    const c = this.cam;
+    for (const F of FACES) {
+      const nx = F[4][0] * F[5], ny = F[4][1] * F[5], nz = F[4][2] * F[5];
+      const k0 = F[0] * 3, vx = c.x - cw[k0], vy = c.y - cw[k0 + 1], vz = c.z - cw[k0 + 2];
+      if (nx * vx + ny * vy + nz * vz <= 0) continue;
+      const sh = 0.5 + 0.55 * Math.max(0, nx * LN[0] + ny * LN[1] + nz * LN[2]) + (ny > 0.5 ? 0.1 : 0);
+      for (let i = 0; i < 4; i++) this.toCam(cw[F[i] * 3], cw[F[i] * 3 + 1], cw[F[i] * 3 + 2], tmp, i * 3);
+      let r = col[0] * sh, g = col[1] * sh, b = col[2] * sh;
+      if (sd && ny > 0.5 && sd === 'stripe') { r = col[0] * sh * 0.9; g = col[1] * sh * 0.9; b = col[2] * sh * 0.9; }
+      this.push(2, tmp, 4, r, g, b, 1, edge, 0);
+    }
+  }
+  props(world) {
+    const c = this.cam;
+    for (const s of world.statics) {
+      const dx = s.cx - c.x, dz = s.cz - c.z;
+      if (dx * dx + dz * dz > 22000) continue;
+      const ax = [s.c, 0, -s.s], ay = [0, 1, 0], az = [s.s, 0, c0(s)];
+      this.box([s.cx, s.cy, s.cz], ax, ay, az, s.hx, s.hy, s.hz, s.color, 'rgba(30,30,28,0.55)');
+      if (dx * dx + dz * dz < 9000) this.shadowQuad(world, s.cx, s.cz, s.hx + 0.3, s.hz + 0.3, s.yaw, 0.18);
+    }
+    for (const R of world.rigid) {
+      const dx = R.p[0] - c.x, dz = R.p[2] - c.z;
+      if (dx * dx + dz * dz > 22000) continue;
+      this.box(R.p, R.ax, R.ay, R.az, R.h[0], R.h[1], R.h[2], R.color, 'rgba(40,28,16,0.6)');
+      if (dx * dx + dz * dz < 5000 && R.p[1] < 4) this.shadowQuad(world, R.p[0], R.p[2], R.h[0] * 1.15, R.h[2] * 1.15, 0, 0.16);
+    }
+  }
+  car(world, car, opts) {
+    const b = car.body, F = car.F, tmp = this.tmp, c = this.cam, N = b.N;
+    const nc = this.nc || (this.nc = new Float64Array(N * 3));
+    for (let i = 0; i < N; i++) this.toCam(b.px[i], b.py[i], b.pz[i], nc, i * 3);
+    const hide = opts.beams === 2;
+    if (!hide) {
+      const ctr = F.c, P = car.paint;
+      for (const f of car.faces) {
+        const [i0, i1, i2, i3] = f.n;
+        const x0 = b.px[i0], y0 = b.py[i0], z0 = b.pz[i0];
+        const d1x = b.px[i2] - x0, d1y = b.py[i2] - y0, d1z = b.pz[i2] - z0;
+        const d2x = b.px[i3] - b.px[i1], d2y = b.py[i3] - b.py[i1], d2z = b.pz[i3] - b.pz[i1];
+        let nx = d1y * d2z - d1z * d2y, ny = d1z * d2x - d1x * d2z, nz = d1x * d2y - d1y * d2x;
+        const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
+        const mx = (x0 + b.px[i2]) / 2, my = (y0 + b.py[i2]) / 2, mz = (z0 + b.pz[i2]) / 2;
+        if (nx * (mx - ctr[0]) + ny * (my - ctr[1]) + nz * (mz - ctr[2]) < 0) { nx = -nx; ny = -ny; nz = -nz; }
+        if (nx * (c.x - mx) + ny * (c.y - my) + nz * (c.z - mz) <= 0) continue;
+        const nl = Math.max(0, nx * LN[0] + ny * LN[1] + nz * LN[2]);
+        let col, sh = 0.5 + 0.55 * nl + (ny > 0.6 ? 0.08 : 0);
+        switch (f.t) {
+          case 'paint': col = P; break;
+          case 'glass': col = [40, 58, 72]; sh = 0.7 + 0.9 * nl + 0.25 * Math.max(0, ny); break;
+          case 'dark': col = [34, 34, 36]; break;
+          case 'lamp': col = [248, 240, 205]; sh = 1.0; break;
+          default: col = [210, 36, 32]; sh = 0.9 + 0.2 * nl;
+        }
+        let r = col[0] * sh, g = col[1] * sh, bl = col[2] * sh;
+        const dm = (b.dmg[i0] + b.dmg[i1] + b.dmg[i2] + b.dmg[i3]) / 4, t = Math.min(0.82, dm * 0.9);
+        if (t > 0.01 && f.t !== 'dark') { r = mix(r, 52, t); g = mix(g, 46, t); bl = mix(bl, 42, t); }
+        for (let q = 0; q < 4; q++) { const k = f.n[q] * 3; tmp[q * 3] = nc[k]; tmp[q * 3 + 1] = nc[k + 1]; tmp[q * 3 + 2] = nc[k + 2]; }
+        this.push(2, tmp, 4, r, g, bl, 1, true, 0);
+      }
+      // blob shadow
+      const fw = F.fwd, ang = Math.atan2(-fw[2], fw[0]);
+      this.shadowQuad(world, ctr[0], ctr[2], 2.3, 1.05, ang, 0.3);
+    }
+    // wheels
+    const SEG = 14, R = AD.WR, hw = 0.11;
+    for (const w of car.wheels) {
+      const cs = Math.cos(car.steer), sn = Math.sin(car.steer), fw = F.fwd, rt = F.right, up = F.up;
+      const fx = w.front ? fw[0] * cs + rt[0] * sn : fw[0], fy = w.front ? fw[1] * cs + rt[1] * sn : fw[1], fz = w.front ? fw[2] * cs + rt[2] * sn : fw[2];
+      const ax = w.front ? rt[0] * cs - fw[0] * sn : rt[0], ay = w.front ? rt[1] * cs - fw[1] * sn : rt[1], az = w.front ? rt[2] * cs - fw[2] * sn : rt[2];
+      const p = w.pos, side = w.side;
+      const ring = (k, off, rad) => {
+        const th = w.spin + k * Math.PI * 2 / SEG, ct = Math.cos(th) * rad, st = Math.sin(th) * rad;
+        return [p[0] + fx * ct + up[0] * st + ax * off, p[1] + fy * ct + up[1] * st + ay * off, p[2] + fz * ct + up[2] * st + az * off];
+      };
+      const O = [], I = [];
+      for (let k = 0; k < SEG; k++) { O.push(ring(k, side * hw, R)); I.push(ring(k, -side * hw, R)); }
+      const vx = c.x - p[0], vy = c.y - p[1], vz = c.z - p[2];
+      const outer = (ax * vx + ay * vy + az * vz) * side > 0;
+      for (let k = 0; k < SEG; k++) {
+        const k2 = (k + 1) % SEG, a = O[k], bb = O[k2], d = I[k2], e = I[k];
+        const mx = (a[0] + bb[0] + d[0] + e[0]) / 4 - p[0], my = (a[1] + bb[1] + d[1] + e[1]) / 4 - p[1], mz = (a[2] + bb[2] + d[2] + e[2]) / 4 - p[2];
+        if (mx * (c.x - p[0] - mx) + my * (c.y - p[1] - my) + mz * (c.z - p[2] - mz) < -0.02) continue;
+        const sh = 0.55 + 0.45 * ((k & 1) ? 1 : 0.6);
+        this.toCam(a[0], a[1], a[2], tmp, 0); this.toCam(bb[0], bb[1], bb[2], tmp, 3); this.toCam(d[0], d[1], d[2], tmp, 6); this.toCam(e[0], e[1], e[2], tmp, 9);
+        this.push(2, tmp, 4, 26 * sh, 26 * sh, 28 * sh, 1, true, 0);
+      }
+      const cap = (arr, off, show) => {
+        if (!show) return;
+        for (let k = 0; k < SEG; k++) this.toCam(arr[k][0], arr[k][1], arr[k][2], tmp, k * 3);
+        this.push(2, tmp, SEG, 34, 34, 37, 1, true, -0.02);
+        // rim spokes
+        for (let k = 0; k < SEG; k += 2) {
+          const th0 = w.spin + k * Math.PI * 2 / SEG, th1 = th0 + Math.PI * 2 / SEG, rr = R * 0.66;
+          const pts = [[p[0] + ax * off, p[1] + ay * off, p[2] + az * off], ring(k, off, rr), ring(k + 1, off, rr)];
+          for (let q = 0; q < 3; q++) this.toCam(pts[q][0], pts[q][1], pts[q][2], tmp, q * 3);
+          this.push(2, tmp, 3, 176, 178, 186, 1, true, -0.04);
+        }
+      };
+      cap(O, side * hw * 1.02, outer); cap(I, -side * hw * 1.02, !outer);
+    }
+  }
+  beams(car) {
+    const b = car.body, ctx = this.ctx, c = this.cam, fl = this.fl, hw = this.W / 2, hh = this.H / 2;
+    const nc = this.nc;
+    const COL = [];
+    for (let i = 0; i <= 8; i++) { const t = (i - 4) / 4; COL.push(t < 0 ? 'rgba(' + (150 + t * 110 | 0) + ',' + (150 + t * 20 | 0) + ',' + 255 + ',0.9)' : 'rgba(255,' + (150 - t * 110 | 0) + ',' + (150 - t * 100 | 0) + ',0.9)'); }
+    const buckets = COL.map(() => []);
+    for (let j = 0; j < b.B; j++) {
+      const a = b.ba[j] * 3, d = b.bb[j] * 3;
+      if (nc[a + 2] < NEAR || nc[d + 2] < NEAR) continue;
+      const k = clamp(Math.round(b.strain[j] / 0.025 * 4) + 4, 0, 8);
+      buckets[k].push(hw + nc[a] * fl / nc[a + 2], hh - nc[a + 1] * fl / nc[a + 2], hw + nc[d] * fl / nc[d + 2], hh - nc[d + 1] * fl / nc[d + 2]);
+    }
+    ctx.lineWidth = 1.4;
+    for (let i = 0; i <= 8; i++) {
+      const B = buckets[i]; if (!B.length) continue;
+      ctx.strokeStyle = COL[i]; ctx.beginPath();
+      for (let q = 0; q < B.length; q += 4) { ctx.moveTo(B[q], B[q + 1]); ctx.lineTo(B[q + 2], B[q + 3]); }
+      ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    for (let i = 0; i < b.N; i++) { const a = i * 3; if (nc[a + 2] < NEAR) continue; ctx.fillRect(hw + nc[a] * fl / nc[a + 2] - 1.5, hh - nc[a + 1] * fl / nc[a + 2] - 1.5, 3, 3); }
+  }
+  render(world, car, opts) {
+    const ctx = this.ctx, W = this.W, H = this.H, c = this.cam;
+    this.np = 0;
+    const fy = c.f[1], hy = clamp(H / 2 + this.fl * fy / Math.sqrt(Math.max(1e-4, 1 - fy * fy)), -10, H + 10);
+    const g = ctx.createLinearGradient(0, 0, 0, Math.max(1, hy));
+    g.addColorStop(0, 'rgb(' + SKY_TOP + ')'); g.addColorStop(1, 'rgb(' + FOG + ')');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, Math.max(0, hy));
+    ctx.fillStyle = 'rgb(' + FOG + ')'; ctx.fillRect(0, Math.max(0, hy - 1), W, H);
+    this.ground(world); this.props(world); this.car(world, car, opts);
+    const L = this.pool.slice(0, this.np);
+    L.sort((a, b) => a.layer - b.layer || b.depth - a.depth);
+    ctx.lineJoin = 'round'; ctx.lineWidth = 1;
+    for (let i = 0; i < L.length; i++) {
+      const P = L[i], p = P.pts;
+      ctx.beginPath(); ctx.moveTo(p[0], p[1]);
+      for (let k = 2; k < p.length; k += 2) ctx.lineTo(p[k], p[k + 1]);
+      ctx.closePath();
+      if (P.layer === 1) { ctx.globalAlpha = P.a; ctx.fillStyle = P.col; ctx.fill(); ctx.globalAlpha = 1; continue; }
+      ctx.fillStyle = P.col; ctx.fill();
+      if (P.st) { ctx.strokeStyle = P.st; ctx.stroke(); }
+    }
+    if (opts.beams) this.beams(car);
+  }
+}
+function c0(s) { return s.c; }
+G.AD = Object.assign(G.AD || {}, { Renderer });
+})(window);
+
+;
+// atti.drive game: input, camera, sound, HUD, main loop.
+(function () {
+'use strict';
+const AD = window.AD;
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+
+const canvas = $('view'), R = new AD.Renderer(canvas);
+const world = new AD.World(); AD.buildLevel(world);
+const car = new AD.Car(world);
+const PAINTS = [['Signal orange', [232, 102, 36]], ['Cobalt', [42, 88, 198]], ['Chalk white', [232, 232, 226]], ['Pine green', [34, 122, 88]], ['Taxi yellow', [230, 188, 40]], ['Crimson', [160, 32, 44]], ['Graphite', [58, 60, 66]]];
+let paintI = 0; car.paint = PAINTS[0][1];
+const CAR_SETUPS = [
+  { name: 'Street', paint: 0, power: 1.00, note: 'Balanced everyday setup' },
+  { name: 'Sport', paint: 1, power: 1.08, note: 'A little more response' },
+  { name: 'Rally', paint: 3, power: 1.04, note: 'Balanced setup for loose surfaces' },
+  { name: 'Track', paint: 5, power: 1.14, note: 'Quicker acceleration' },
+  { name: 'Off-road', paint: 4, power: 0.98, note: 'Smooth, steady power delivery' }
+];
+const UPGRADES = [{name:'Stock', mult:1}, {name:'Sport', mult:1.12}, {name:'Race', mult:1.25}];
+let setupI = 0, upgradeI = 0;
+function updateGarage() {
+  car.paint = PAINTS[paintI][1];
+  car.powerMultiplier = CAR_SETUPS[setupI].power * UPGRADES[upgradeI].mult;
+  document.querySelectorAll('[data-car]').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.car) === setupI)));
+  document.querySelectorAll('[data-paint]').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.paint) === paintI)));
+  document.querySelectorAll('[data-upgrade]').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.upgrade) === upgradeI)));
+  const summary = $('garage-summary');
+  if (summary) summary.textContent = CAR_SETUPS[setupI].name + ' setup · ' + PAINTS[paintI][0] + ' · ' + UPGRADES[upgradeI].name + ' power';
+}
+const SPAWN = { x: 0, z: 0, yaw: 0 };
+car.reset(SPAWN.x, SPAWN.z, SPAWN.yaw);
+
+// ---------- state ----------
+const S = { started: false, paused: false, camMode: 0, beams: 0, mph: true, help: true, tc: true, shake: 0 };
+const keys = Object.create(null), touch = { l: 0, r: 0, gas: 0, brk: 0 };
+let steerSm = 0;
+
+// ---------- toast ----------
+let toastT = 0;
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 1600); }
+
+// ---------- sound ----------
+const Snd = {
+  ctx: null, muted: false,
+  start() {
+    if (this.ctx) { this.ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    const c = this.ctx = new AC();
+    this.master = c.createGain(); this.master.gain.value = 0.55; this.master.connect(c.destination);
+    this.o1 = c.createOscillator(); this.o1.type = 'sawtooth'; this.o2 = c.createOscillator(); this.o2.type = 'square';
+    this.lp = c.createBiquadFilter(); this.lp.type = 'lowpass'; this.lp.frequency.value = 600; this.lp.Q.value = 2;
+    this.eg = c.createGain(); this.eg.gain.value = 0;
+    const g2 = c.createGain(); g2.gain.value = 0.5;
+    this.o1.connect(this.lp); this.o2.connect(g2); g2.connect(this.lp); this.lp.connect(this.eg); this.eg.connect(this.master);
+    this.o1.start(); this.o2.start();
+    const len = c.sampleRate * 2, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    this.buf = buf;
+    const loop = (type, freq, q) => {
+      const s = c.createBufferSource(); s.buffer = buf; s.loop = true;
+      const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+      const g = c.createGain(); g.gain.value = 0; s.connect(f); f.connect(g); g.connect(this.master); s.start(); return { f, g };
+    };
+    this.tire = loop('bandpass', 1100, 3); this.wind = loop('lowpass', 500, 0.5);
+  },
+  update(rpm, thr, slip, speed) {
+    if (!this.ctx) return; const t = this.ctx.currentTime;
+    const f = rpm / 60 * 2;
+    this.o1.frequency.setTargetAtTime(f * 2, t, 0.03); this.o2.frequency.setTargetAtTime(f, t, 0.03);
+    this.lp.frequency.setTargetAtTime(380 + rpm * 0.32 + thr * 500, t, 0.05);
+    this.eg.gain.setTargetAtTime(this.muted ? 0 : 0.05 + 0.1 * thr + rpm / 7000 * 0.05, t, 0.05);
+    this.tire.g.gain.setTargetAtTime(this.muted ? 0 : clamp((slip - 0.18) * 0.5, 0, 0.22) * (speed > 2 ? 1 : 0), t, 0.04);
+    this.tire.f.frequency.setTargetAtTime(800 + Math.min(speed, 40) * 12, t, 0.1);
+    this.wind.g.gain.setTargetAtTime(this.muted ? 0 : clamp(speed / 70, 0, 1) * 0.16, t, 0.1);
+  },
+  crash(p) {
+    if (!this.ctx || this.muted) return; const c = this.ctx, t = c.currentTime;
+    const s = c.createBufferSource(); s.buffer = this.buf; s.playbackRate.value = 0.6 + Math.random() * 0.5;
+    const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 500 + p * 3000;
+    const g = c.createGain(); g.gain.setValueAtTime(clamp(p, 0.08, 1) * 0.9, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.25 + p * 0.6);
+    s.connect(f); f.connect(g); g.connect(this.master); s.start(t, Math.random()); s.stop(t + 1);
+    const o = c.createOscillator(); o.frequency.setValueAtTime(90, t); o.frequency.exponentialRampToValueAtTime(30, t + 0.25);
+    const og = c.createGain(); og.gain.setValueAtTime(clamp(p, 0, 1) * 0.7, t); og.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    o.connect(og); og.connect(this.master); o.start(t); o.stop(t + 0.35);
+  },
+};
+
+// ---------- input ----------
+function begin() {
+  if (S.started) return;
+  S.started = true; $('title').classList.add('hide'); Snd.start(); canvas.focus();
+}
+function setPaused(p) { S.paused = p; $('pause').classList.toggle('hide', !p); if (!p) canvas.focus(); }
+function respawnHere() {
+  const F = car.F, c = F.c; const yaw = Math.atan2(-F.fwd[2], F.fwd[0]);
+  car.reset(c[0], c[2], yaw); toast('Repaired and upright');
+}
+function resetProps() { AD.buildProps(world); toast('Props reset'); }
+function cycleCam() { S.camMode = (S.camMode + 1) % 3; toast(['Chase camera', 'Far camera', 'Driver camera'][S.camMode]); }
+function cycleBeams() { S.beams = (S.beams + 1) % 3; toast(['Normal view', 'Beam overlay', 'Beams only'][S.beams]); }
+function cyclePaint() { paintI = (paintI + 1) % PAINTS.length; car.paint = PAINTS[paintI][1]; toast(PAINTS[paintI][0]); }
+const ACTIONS = {
+  KeyR: respawnHere, Backspace: () => { car.reset(SPAWN.x, SPAWN.z, SPAWN.yaw); toast('Back at the start'); },
+  KeyC: cycleCam, KeyB: cycleBeams, KeyV: cyclePaint, KeyP: resetProps,
+  KeyU: () => { S.mph = !S.mph; }, KeyH: () => { S.help = !S.help; $('help').classList.toggle('hide', !S.help); },
+  KeyT: () => { car.tc = !car.tc; toast(car.tc ? 'Traction control on' : 'Traction control off'); },
+  KeyM: () => { Snd.muted = !Snd.muted; toast(Snd.muted ? 'Sound off' : 'Sound on'); },
+};
+window.addEventListener('keydown', (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Backspace'].includes(e.code)) e.preventDefault();
+  if (!S.started) { if (e.code === 'Enter' || e.code === 'Space') begin(); else if (!e.repeat && e.code.startsWith('Key')) begin(); return; }
+  if (e.code === 'Escape') { setPaused(!S.paused); return; }
+  keys[e.code] = true;
+  if (!e.repeat && ACTIONS[e.code] && !S.paused) ACTIONS[e.code]();
+});
+window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+$('go').addEventListener('click', (e) => { e.preventDefault(); begin(); });
+document.querySelectorAll('[data-car]').forEach(b => b.addEventListener('click', () => { setupI = Number(b.dataset.car); updateGarage(); toast(CAR_SETUPS[setupI].name + ' setup selected'); }));
+document.querySelectorAll('[data-paint]').forEach(b => b.addEventListener('click', () => { paintI = Number(b.dataset.paint); updateGarage(); }));
+document.querySelectorAll('[data-upgrade]').forEach(b => b.addEventListener('click', () => { upgradeI = Number(b.dataset.upgrade); updateGarage(); }));
+updateGarage();
+$('resume').addEventListener('click', () => setPaused(false));
+canvas.addEventListener('pointerdown', () => canvas.focus());
+// touch pads
+function bindPad(id, key) {
+  const el = $(id); if (!el) return;
+  const on = (e) => { e.preventDefault(); touch[key] = 1; el.classList.add('down'); begin(); };
+  const off = (e) => { e.preventDefault(); touch[key] = 0; el.classList.remove('down'); };
+  el.addEventListener('pointerdown', on); el.addEventListener('pointerup', off); el.addEventListener('pointercancel', off); el.addEventListener('pointerleave', off);
+}
+bindPad('tl', 'l'); bindPad('tr', 'r'); bindPad('tg', 'gas'); bindPad('tb', 'brk');
+for (const [id, fn] of [['tx-reset', respawnHere], ['tx-cam', cycleCam], ['tx-beam', cycleBeams], ['tx-paint', cyclePaint]]) { const el = $(id); if (el) el.addEventListener('click', fn); }
+window.addEventListener('touchstart', () => document.body.classList.add('touch'), { passive: true, once: true });
+window.addEventListener('resize', () => R.resize());
+
+function readInput(dt) {
+  const k = keys;
+  const l = (k.KeyA || k.ArrowLeft) ? 1 : 0, r = (k.KeyD || k.ArrowRight) ? 1 : 0;
+  const tgt = (r - l) + (touch.r - touch.l);
+  const rate = Math.abs(tgt) > Math.abs(steerSm) ? 5 : 8;
+  steerSm += clamp(tgt - steerSm, -rate * dt, rate * dt);
+  const inp = car.input;
+  inp.steer = clamp(steerSm, -1, 1);
+  inp.thr = (k.KeyW || k.ArrowUp || touch.gas) ? 1 : 0;
+  inp.brk = (k.KeyS || k.ArrowDown || touch.brk) ? 1 : 0;
+  inp.hand = k.Space ? 1 : 0;
+}
+
+// ---------- camera ----------
+const cam = { hx: 1, hz: 0, p: [0, 3, -8], init: false, orbit: 0 };
+function updateCamera(dt) {
+  const F = car.F, c = F.c, sp = car.speed;
+  let hx = F.fwd[0], hz = F.fwd[2]; const hl = Math.hypot(hx, hz) || 1; hx /= hl; hz /= hl;
+  if (!cam.init) { cam.hx = hx; cam.hz = hz; cam.init = true; cam.p = [c[0] - hx * 7, c[1] + 2.5, c[2] - hz * 7]; }
+  const k = 1 - Math.exp(-dt * (S.started ? 3.2 : 100));
+  cam.hx += (hx - cam.hx) * k; cam.hz += (hz - cam.hz) * k;
+  const cl = Math.hypot(cam.hx, cam.hz) || 1; cam.hx /= cl; cam.hz /= cl;
+  let tx, ty, tz, lx, ly, lz, fov = 62 + clamp(sp, 0, 60) * 0.3;
+  if (!S.started) {
+    cam.orbit += dt * 0.22; const a = cam.orbit + 0.9;
+    tx = c[0] + Math.cos(a) * 8.2; tz = c[2] + Math.sin(a) * 8.2; ty = c[1] + 2.0;
+    cam.p = [tx, ty, tz]; lx = c[0]; ly = c[1] + 0.2; lz = c[2]; fov = 54;
+  } else if (S.camMode === 2) {
+    cam.p = [c[0] + F.fwd[0] * 0.35 + F.up[0] * 0.38 - F.right[0] * 0.28, c[1] + F.fwd[1] * 0.35 + F.up[1] * 0.38, c[2] + F.fwd[2] * 0.35 + F.up[2] * 0.38 - F.right[2] * 0.28];
+    lx = cam.p[0] + cam.hx * 20; ly = cam.p[1] + 0.2 + F.fwd[1] * 4; lz = cam.p[2] + cam.hz * 20; fov += 8;
+  } else {
+    const far = S.camMode === 1, dist = (far ? 12.5 : 7.0) + sp * 0.035, h = far ? 4.6 : 2.3;
+    tx = c[0] - cam.hx * dist; tz = c[2] - cam.hz * dist; ty = c[1] + h;
+    const kp = 1 - Math.exp(-dt * 9), ky = 1 - Math.exp(-dt * 5);
+    cam.p[0] += (tx - cam.p[0]) * kp; cam.p[2] += (tz - cam.p[2]) * kp; cam.p[1] += (ty - cam.p[1]) * ky;
+    const gh = world.terrain.h(cam.p[0], cam.p[2]) + 0.8; if (cam.p[1] < gh) cam.p[1] = gh;
+    lx = c[0] + cam.hx * 4; ly = c[1] + 0.9; lz = c[2] + cam.hz * 4;
+  }
+  let sx = 0, sy = 0, sz = 0;
+  if (S.shake > 0.01) { sx = (Math.random() - 0.5) * S.shake; sy = (Math.random() - 0.5) * S.shake; sz = (Math.random() - 0.5) * S.shake; S.shake *= Math.exp(-dt * 7); }
+  R.setCamera(cam.p[0] + sx, cam.p[1] + sy, cam.p[2] + sz, lx, ly, lz, fov);
+}
+
+// ---------- HUD ----------
+const el = { speed: $('speed'), unit: $('unit'), gear: $('gear'), rpm: $('rpmfill'), dmg: $('dmgfill'), dmgv: $('dmgval'), cam: $('status') };
+let hudT = 0;
+function hud(dt) {
+  hudT -= dt; if (hudT > 0) return; hudT = 0.05;
+  const v = car.speed * (S.mph ? 2.23694 : 3.6);
+  el.speed.textContent = Math.round(v); el.unit.textContent = S.mph ? 'mph' : 'km/h';
+  el.gear.textContent = car.gear < 0 ? 'R' : String(car.gear);
+  const rp = clamp((car.rpm - 800) / 6200, 0, 1); el.rpm.style.transform = 'scaleX(' + rp.toFixed(3) + ')'; el.rpm.classList.toggle('red', car.rpm > 6300);
+  const d = car.damage(); el.dmg.style.transform = 'scaleX(' + d.toFixed(3) + ')'; el.dmgv.textContent = Math.round(d * 100) + '%';
+  el.cam.textContent = 'TC ' + (car.tc ? 'on' : 'off') + '  ·  ' + PAINTS[paintI][0];
+}
+
+// ---------- loop ----------
+let last = performance.now(), acc = 0, crashAcc = 0;
+function drawCockpit() {
+  if (S.camMode !== 2) return;
+  const ctx = R.ctx, w = R.W, h = R.H;
+  const sx = w / 1000, sy = h / 700;
+  ctx.save(); ctx.scale(sx, sy);
+  // Windshield frame and side pillars
+  const pillar = ctx.createLinearGradient(0, 0, 1000, 0);
+  pillar.addColorStop(0, '#101419'); pillar.addColorStop(.5, '#343b43'); pillar.addColorStop(1, '#101419');
+  ctx.fillStyle = pillar;
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(54,0); ctx.lineTo(132,420); ctx.lineTo(0,500); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(1000,0); ctx.lineTo(946,0); ctx.lineTo(868,420); ctx.lineTo(1000,500); ctx.closePath(); ctx.fill();
+  // A slim roof edge, mirrors and mirror stems
+  ctx.fillStyle = '#171c22'; ctx.fillRect(0,0,1000,18);
+  ctx.strokeStyle = '#171c22'; ctx.lineWidth = 13;
+  ctx.beginPath(); ctx.moveTo(105,330); ctx.lineTo(50,285); ctx.moveTo(895,330); ctx.lineTo(950,285); ctx.stroke();
+  ctx.fillStyle = '#303943';
+  ctx.beginPath(); ctx.roundRect(12,260,104,48,12); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(884,260,104,48,12); ctx.fill();
+  ctx.fillStyle = '#71818b'; ctx.globalAlpha = .55;
+  ctx.fillRect(23,270,82,26); ctx.fillRect(895,270,82,26); ctx.globalAlpha = 1;
+  // Dashboard silhouette
+  const dash = ctx.createLinearGradient(0,470,0,700);
+  dash.addColorStop(0,'#424a52'); dash.addColorStop(.18,'#242a31'); dash.addColorStop(1,'#0b0e12');
+  ctx.fillStyle = dash;
+  ctx.beginPath(); ctx.moveTo(0,490); ctx.quadraticCurveTo(500,410,1000,490); ctx.lineTo(1000,700); ctx.lineTo(0,700); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(220,230,238,.22)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(0,492); ctx.quadraticCurveTo(500,412,1000,492); ctx.stroke();
+  // Instrument cluster
+  ctx.fillStyle = '#10151a'; ctx.beginPath(); ctx.roundRect(390,490,220,90,16); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = 2; ctx.stroke();
+  for (let i=0;i<2;i++) {
+    const x=445+i*110, y=535;
+    ctx.fillStyle='#080b0e'; ctx.beginPath(); ctx.arc(x,y,29,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#9ba9b5'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(x,y,24,Math.PI*.78,Math.PI*2.22); ctx.stroke();
+    ctx.strokeStyle='#e9eef2'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+Math.cos(-.75+i*.22)*17,y+Math.sin(-.75+i*.22)*17); ctx.stroke();
+  }
+  // Center display and vents
+  ctx.fillStyle='#111820'; ctx.beginPath(); ctx.roundRect(450,590,100,48,7); ctx.fill();
+  ctx.fillStyle='#6da9c5'; ctx.font='bold 13px monospace'; ctx.textAlign='center'; ctx.fillText('atti.drive',500,619);
+  ctx.strokeStyle='rgba(220,230,238,.35)'; ctx.lineWidth=4;
+  for(let i=0;i<5;i++){ctx.beginPath();ctx.moveTo(350+i*20,604);ctx.lineTo(350+i*20,628);ctx.stroke();}
+  for(let i=0;i<5;i++){ctx.beginPath();ctx.moveTo(570+i*20,604);ctx.lineTo(570+i*20,628);ctx.stroke();}
+  // Steering wheel with animated steering angle
+  const wx=500, wy=625, wr=83, rot=car.steer*1.35;
+  ctx.save(); ctx.translate(wx,wy); ctx.rotate(rot);
+  ctx.strokeStyle='#090c10'; ctx.lineWidth=22; ctx.beginPath(); ctx.arc(0,0,wr,0,Math.PI*2); ctx.stroke();
+  ctx.strokeStyle='#59636d'; ctx.lineWidth=5; ctx.beginPath(); ctx.arc(0,0,wr-10,0,Math.PI*2); ctx.stroke();
+  ctx.fillStyle='#202830'; ctx.beginPath(); ctx.moveTo(-13,-12); ctx.lineTo(-55,-58); ctx.lineTo(-39,-66); ctx.lineTo(-4,-14); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(13,-12); ctx.lineTo(55,-58); ctx.lineTo(39,-66); ctx.lineTo(4,-14); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-12,12); ctx.lineTo(-25,58); ctx.lineTo(25,58); ctx.lineTo(12,12); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#303a44'; ctx.beginPath(); ctx.arc(0,0,22,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#9aa7b1'; ctx.font='bold 9px monospace'; ctx.textAlign='center'; ctx.fillText('AD',0,3);
+  ctx.restore();
+  // Lower door trim
+  ctx.fillStyle='#11161b'; ctx.fillRect(0,680,1000,20);
+  ctx.restore();
+}
+
+function frame(now) {
+  let dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (!S.paused) {
+    if (S.started) readInput(dt); else { car.input.thr = 0; car.input.brk = 0; car.input.steer = 0; car.input.hand = 1; }
+    acc += dt; let n = 0; const sdt = world.dt;
+    world.crash = 0;
+    while (acc >= sdt && n < 45) { world.step(); acc -= sdt; n++; }
+    if (n >= 45) acc = 0;
+    const b = car.body;
+    if (!isFinite(b.px[0] + b.py[0] + b.pz[0]) || Math.abs(b.px[0]) > 4000 || Math.abs(b.pz[0]) > 4000 || b.py[0] < -50) { car.reset(SPAWN.x, SPAWN.z, SPAWN.yaw); toast('Back at the start'); }
+    if (world.crash > 12) { const p = clamp(world.crash / 400, 0, 1); Snd.crash(p); S.shake = Math.max(S.shake, 0.05 + p * 0.5); }
+    let slip = 0; for (const w of car.wheels) slip = Math.max(slip, w.slip);
+    Snd.update(car.rpm, S.started ? car.input.thr || car.input.brk * (car.gear < 0 ? 1 : 0) : 0, slip, car.speed);
+  }
+  car.frame();
+  updateCamera(S.paused ? 0.0001 : dt);
+  R.render(world, car, { beams: S.beams });
+  drawCockpit();
+  hud(dt);
+  requestAnimationFrame(frame);
+}
+$('help').classList.toggle('hide', !S.help);
+canvas.tabIndex = 0; canvas.focus();
+requestAnimationFrame(frame);
+window.__atti = { world, car, S, R };
+})();
+
+</script>
+
+</body></html>
